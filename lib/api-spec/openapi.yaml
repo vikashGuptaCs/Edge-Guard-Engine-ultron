@@ -1,22 +1,36 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: EdgeGuard v3.0 API - Institutional Quant & Protection Engine
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: fixtures
+    description: Match fixture operations
+  - name: odds
+    description: Odds snapshot operations
+  - name: agents
+    description: Risk agent signal operations
+  - name: alerts
+    description: Alert operations
+  - name: receipts
+    description: On-chain receipt operations
+  - name: dashboard
+    description: Dashboard summary operations
+  - name: txline
+    description: TxLINE integration
+  - name: narrate
+    description: AI narration
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +38,360 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /fixtures:
+    get:
+      operationId: listFixtures
+      tags: [fixtures]
+      summary: List all tracked fixtures
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of fixtures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Fixture"
+
+  /fixtures/{fixtureId}:
+    get:
+      operationId: getFixture
+      tags: [fixtures]
+      summary: Get fixture by ID
+      parameters:
+        - name: fixtureId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Fixture
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fixture"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /fixtures/{fixtureId}/odds:
+    get:
+      operationId: getFixtureOdds
+      tags: [odds]
+      summary: Get odds snapshots for a fixture
+      parameters:
+        - name: fixtureId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Odds snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OddsSnapshot"
+
+  /fixtures/{fixtureId}/agents:
+    get:
+      operationId: getFixtureAgentSignals
+      tags: [agents]
+      summary: Get agent signals for a fixture
+      parameters:
+        - name: fixtureId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Agent signals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentSignal"
+
+  /fixtures/{fixtureId}/timeline:
+    get:
+      operationId: getFixtureTimeline
+      tags: [fixtures]
+      summary: Get full timeline replay data for a fixture
+      parameters:
+        - name: fixtureId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Timeline data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FixtureTimeline"
+
+  /agents/signals:
+    get:
+      operationId: listAgentSignals
+      tags: [agents]
+      summary: List recent agent signals across all fixtures
+      parameters:
+        - name: agentName
+          in: query
+          schema:
+            type: string
+        - name: signalType
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Agent signals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentSignal"
+
+  /agents/heartbeat:
+    get:
+      operationId: getAgentHeartbeats
+      tags: [agents]
+      summary: Get current heartbeat status for all 5 agents
+      responses:
+        "200":
+          description: Agent heartbeat statuses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentHeartbeat"
+
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List alerts for the authenticated user
+      parameters:
+        - name: fixtureId
+          in: query
+          schema:
+            type: integer
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  /alerts/{alertId}:
+    get:
+      operationId: getAlert
+      tags: [alerts]
+      summary: Get alert by ID
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Alert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /receipts:
+    get:
+      operationId: listReceipts
+      tags: [receipts]
+      summary: List on-chain receipts for the authenticated user
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Receipts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Receipt"
+    post:
+      operationId: createReceipt
+      tags: [receipts]
+      summary: Create a new on-chain receipt (execute or veto)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiptInput"
+      responses:
+        "201":
+          description: Created receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Receipt"
+
+  /receipts/{receiptId}/retry:
+    post:
+      operationId: retryReceipt
+      tags: [receipts]
+      summary: Retry a failed receipt transaction
+      parameters:
+        - name: receiptId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Receipt"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard overview stats
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/live-ticker:
+    get:
+      operationId: getLiveTicker
+      tags: [dashboard]
+      summary: Get live ticker with active matches and edge scores
+      responses:
+        "200":
+          description: Live ticker items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LiveTickerItem"
+
+  /dashboard/risk-grid:
+    get:
+      operationId: getRiskGrid
+      tags: [dashboard]
+      summary: Get current risk grid across active fixtures
+      responses:
+        "200":
+          description: Risk grid items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RiskGridItem"
+
+  /public/txline/activate:
+    post:
+      operationId: activateTxline
+      tags: [txline]
+      summary: Activate TxLINE session via wallet signature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TxlineActivateInput"
+      responses:
+        "200":
+          description: TxLINE session token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxlineSession"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /narrate:
+    post:
+      operationId: narrateAlert
+      tags: [narrate]
+      summary: Generate AI narration for an alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NarrateInput"
+      responses:
+        "200":
+          description: Narration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NarrateResult"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +402,414 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Fixture:
+      type: object
+      properties:
+        fixtureId:
+          type: integer
+        competition:
+          type: string
+        homeTeam:
+          type: string
+        awayTeam:
+          type: string
+        kickoffTs:
+          type: integer
+        status:
+          type: string
+        homeScore:
+          type: ["integer", "null"]
+        awayScore:
+          type: ["integer", "null"]
+        minutePlayed:
+          type: ["integer", "null"]
+        currentEdgeScore:
+          type: ["integer", "null"]
+        feedLatencyMs:
+          type: ["integer", "null"]
+      required:
+        - fixtureId
+        - competition
+        - homeTeam
+        - awayTeam
+        - kickoffTs
+        - status
+
+    OddsSnapshot:
+      type: object
+      properties:
+        id:
+          type: integer
+        fixtureId:
+          type: integer
+        ts:
+          type: integer
+        market:
+          type: string
+        selection:
+          type: string
+        stablePrice:
+          type: number
+        spread:
+          type: number
+        volume:
+          type: number
+      required:
+        - id
+        - fixtureId
+        - ts
+        - market
+        - selection
+        - stablePrice
+        - spread
+        - volume
+
+    AgentSignal:
+      type: object
+      properties:
+        id:
+          type: integer
+        fixtureId:
+          type: integer
+        ts:
+          type: integer
+        agentName:
+          type: string
+        signalType:
+          type: string
+        confidence:
+          type: number
+        payload:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - fixtureId
+        - ts
+        - agentName
+        - signalType
+        - confidence
+
+    AgentHeartbeat:
+      type: object
+      properties:
+        agentName:
+          type: string
+        status:
+          type: string
+        lastSignalTs:
+          type: ["integer", "null"]
+        activeFixtures:
+          type: integer
+        verdict:
+          type: ["string", "null"]
+      required:
+        - agentName
+        - status
+        - activeFixtures
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: ["string", "null"]
+        fixtureId:
+          type: integer
+        ts:
+          type: integer
+        edgeScore:
+          type: integer
+        narration:
+          type: ["string", "null"]
+        action:
+          type: string
+        fired:
+          type: boolean
+        fixture:
+          $ref: "#/components/schemas/Fixture"
+      required:
+        - id
+        - fixtureId
+        - ts
+        - edgeScore
+        - action
+        - fired
+
+    Receipt:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: ["string", "null"]
+        alertId:
+          type: ["integer", "null"]
+        txSignature:
+          type: ["string", "null"]
+        memoJson:
+          type: object
+          additionalProperties: true
+        cluster:
+          type: string
+        ts:
+          type: integer
+        status:
+          type: string
+        fixture:
+          $ref: "#/components/schemas/Fixture"
+        alert:
+          $ref: "#/components/schemas/Alert"
+      required:
+        - id
+        - cluster
+        - ts
+        - status
+
+    ReceiptInput:
+      type: object
+      properties:
+        alertId:
+          type: ["integer", "null"]
+        fixtureId:
+          type: integer
+        txSignature:
+          type: string
+        memoJson:
+          type: object
+          additionalProperties: true
+        cluster:
+          type: string
+        status:
+          type: string
+      required:
+        - fixtureId
+        - txSignature
+        - memoJson
+        - cluster
+        - status
+
+    DashboardSummary:
+      type: object
+      properties:
+        activeFixtures:
+          type: integer
+        totalAlerts:
+          type: integer
+        executedToday:
+          type: integer
+        vetoedToday:
+          type: integer
+        avgEdgeScore:
+          type: number
+        feedLatencyMs:
+          type: integer
+        activeAgents:
+          type: integer
+        alertsPerHour:
+          type: number
+      required:
+        - activeFixtures
+        - totalAlerts
+        - executedToday
+        - vetoedToday
+        - avgEdgeScore
+        - feedLatencyMs
+        - activeAgents
+        - alertsPerHour
+
+    LiveTickerItem:
+      type: object
+      properties:
+        fixtureId:
+          type: integer
+        homeTeam:
+          type: string
+        awayTeam:
+          type: string
+        homeScore:
+          type: integer
+        awayScore:
+          type: integer
+        minutePlayed:
+          type: integer
+        edgeScore:
+          type: integer
+        action:
+          type: string
+        latencyMs:
+          type: integer
+        topSignal:
+          type: ["string", "null"]
+      required:
+        - fixtureId
+        - homeTeam
+        - awayTeam
+        - homeScore
+        - awayScore
+        - minutePlayed
+        - edgeScore
+        - action
+        - latencyMs
+
+    RiskGridItem:
+      type: object
+      properties:
+        fixtureId:
+          type: integer
+        homeTeam:
+          type: string
+        awayTeam:
+          type: string
+        spread:
+          type: number
+        latencyMs:
+          type: integer
+        volatilityRisk:
+          type: string
+        sentinelStatus:
+          type: string
+        edgeScore:
+          type: integer
+        recommendation:
+          type: string
+      required:
+        - fixtureId
+        - homeTeam
+        - awayTeam
+        - spread
+        - latencyMs
+        - volatilityRisk
+        - sentinelStatus
+        - edgeScore
+        - recommendation
+
+    FixtureTimeline:
+      type: object
+      properties:
+        fixtureId:
+          type: integer
+        odds:
+          type: array
+          items:
+            $ref: "#/components/schemas/OddsSnapshot"
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentSignal"
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+        scoreEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoreEvent"
+      required:
+        - fixtureId
+        - odds
+        - signals
+        - alerts
+        - scoreEvents
+
+    ScoreEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        fixtureId:
+          type: integer
+        ts:
+          type: integer
+        minute:
+          type: integer
+        eventType:
+          type: string
+        participant:
+          type: string
+        meta:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - fixtureId
+        - ts
+        - minute
+        - eventType
+        - participant
+
+    TxlineActivateInput:
+      type: object
+      properties:
+        walletAddress:
+          type: string
+        signature:
+          type: string
+        message:
+          type: string
+        network:
+          type: string
+      required:
+        - walletAddress
+        - signature
+        - message
+        - network
+
+    TxlineSession:
+      type: object
+      properties:
+        apiToken:
+          type: string
+        network:
+          type: string
+        expiresAt:
+          type: integer
+      required:
+        - apiToken
+        - network
+        - expiresAt
+
+    NarrateInput:
+      type: object
+      properties:
+        alertId:
+          type: integer
+        fixtureId:
+          type: integer
+        edgeScore:
+          type: integer
+        action:
+          type: string
+        agentSignals:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        context:
+          type: object
+          additionalProperties: true
+      required:
+        - alertId
+        - fixtureId
+        - edgeScore
+        - action
+
+    NarrateResult:
+      type: object
+      properties:
+        narration:
+          type: string
+        source:
+          type: string
+      required:
+        - narration
+        - source

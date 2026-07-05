@@ -1,0 +1,2 @@
+- [Wouter nested routing](wouter-nested-routing.md) — Add both `/parent` AND `/parent/*` routes in parent Switch; wildcard alone skips exact path match
+- [Orval path+query params collision](orval-path-query-collision.md) — Endpoints with BOTH path params AND query params cause TS2308 in api-zod; remove query params from those endpoints

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "EdgeGuard v3.0"
+version = "1.0.0"
+id = "artifacts/edgeguard"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18486
+
+[services.development]
+run = "pnpm --filter @workspace/edgeguard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/edgeguard", "run", "build" ]
+publicDir = "artifacts/edgeguard/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18486"
+BASE_PATH = "/"
