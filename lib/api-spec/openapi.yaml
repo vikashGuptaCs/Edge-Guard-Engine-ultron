@@ -342,26 +342,63 @@ paths:
                 items:
                   $ref: "#/components/schemas/RiskGridItem"
 
-  /public/txline/activate:
-    post:
-      operationId: activateTxline
+  /txline/status:
+    get:
+      operationId: getTxlineStatus
       tags: [txline]
-      summary: Activate TxLINE session via wallet signature
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TxlineActivateInput"
+      summary: Get TxLINE connection status
       responses:
         "200":
-          description: TxLINE session token
+          description: TxLINE feed status
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TxlineSession"
-        "400":
-          description: Bad request
+                $ref: "#/components/schemas/TxlineStatus"
+
+  /txline/fixtures:
+    get:
+      operationId: getTxlineFixtures
+      tags: [txline]
+      summary: Get live fixtures from TxLINE feed
+      responses:
+        "200":
+          description: Live TxLINE fixtures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TxlineFixture"
+        "502":
+          description: TxLINE feed unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /txline/odds/{fixtureId}:
+    get:
+      operationId: getTxlineOdds
+      tags: [txline]
+      summary: Get odds snapshot for a TxLINE fixture
+      parameters:
+        - name: fixtureId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Odds entries for the fixture
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        "502":
+          description: TxLINE feed unavailable
           content:
             application/json:
               schema:
@@ -747,36 +784,48 @@ components:
         - eventType
         - participant
 
-    TxlineActivateInput:
+    TxlineStatus:
       type: object
       properties:
-        walletAddress:
-          type: string
-        signature:
-          type: string
-        message:
-          type: string
-        network:
-          type: string
-      required:
-        - walletAddress
-        - signature
-        - message
-        - network
-
-    TxlineSession:
-      type: object
-      properties:
-        apiToken:
-          type: string
-        network:
-          type: string
-        expiresAt:
+        connected:
+          type: boolean
+        fixtureCount:
           type: integer
+        network:
+          type: string
+        tokenConfigured:
+          type: boolean
+        error:
+          type: ["string", "null"]
       required:
-        - apiToken
+        - connected
+        - fixtureCount
         - network
-        - expiresAt
+        - tokenConfigured
+
+    TxlineFixture:
+      type: object
+      properties:
+        fixtureId:
+          type: integer
+        homeTeam:
+          type: string
+        awayTeam:
+          type: string
+        startTime:
+          type: string
+        competitionId:
+          type: integer
+        competitionName:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+      required:
+        - fixtureId
+        - homeTeam
+        - awayTeam
+        - startTime
+        - competitionId
 
     NarrateInput:
       type: object

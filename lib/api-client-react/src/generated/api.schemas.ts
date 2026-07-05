@@ -166,17 +166,25 @@ export interface FixtureTimeline {
   scoreEvents: ScoreEvent[];
 }
 
-export interface TxlineActivateInput {
-  walletAddress: string;
-  signature: string;
-  message: string;
+export interface TxlineStatus {
+  connected: boolean;
+  fixtureCount: number;
   network: string;
+  tokenConfigured: boolean;
+  /** @nullable */
+  error?: string | null;
 }
 
-export interface TxlineSession {
-  apiToken: string;
-  network: string;
-  expiresAt: number;
+export interface TxlineFixture {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  startTime: string;
+  competitionId: number;
+  /** @nullable */
+  competitionName?: string | null;
+  /** @nullable */
+  status?: string | null;
 }
 
 export type NarrateInputAgentSignalsItem = { [key: string]: unknown };
@@ -218,4 +226,6 @@ export type ListReceiptsParams = {
 status?: string;
 limit?: number;
 };
+
+export type GetTxlineOdds200Item = { [key: string]: unknown };
 

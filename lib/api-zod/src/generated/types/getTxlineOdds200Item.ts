@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface TxlineActivateInput {
-  walletAddress: string;
-  signature: string;
-  message: string;
-  network: string;
-}
+export type GetTxlineOdds200Item = { [key: string]: unknown };

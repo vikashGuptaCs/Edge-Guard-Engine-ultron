@@ -488,20 +488,41 @@ export const GetRiskGridResponse = zod.array(GetRiskGridResponseItem)
 
 
 /**
- * @summary Activate TxLINE session via wallet signature
+ * @summary Get TxLINE connection status
  */
-export const ActivateTxlineBody = zod.object({
-  "walletAddress": zod.string(),
-  "signature": zod.string(),
-  "message": zod.string(),
-  "network": zod.string()
+export const GetTxlineStatusResponse = zod.object({
+  "connected": zod.boolean(),
+  "fixtureCount": zod.number(),
+  "network": zod.string(),
+  "tokenConfigured": zod.boolean(),
+  "error": zod.string().nullish()
 })
 
-export const ActivateTxlineResponse = zod.object({
-  "apiToken": zod.string(),
-  "network": zod.string(),
-  "expiresAt": zod.number()
+
+/**
+ * @summary Get live fixtures from TxLINE feed
+ */
+export const GetTxlineFixturesResponseItem = zod.object({
+  "fixtureId": zod.number(),
+  "homeTeam": zod.string(),
+  "awayTeam": zod.string(),
+  "startTime": zod.string(),
+  "competitionId": zod.number(),
+  "competitionName": zod.string().nullish(),
+  "status": zod.string().nullish()
 })
+export const GetTxlineFixturesResponse = zod.array(GetTxlineFixturesResponseItem)
+
+
+/**
+ * @summary Get odds snapshot for a TxLINE fixture
+ */
+export const GetTxlineOddsParams = zod.object({
+  "fixtureId": zod.coerce.number()
+})
+
+export const GetTxlineOddsResponseItem = zod.record(zod.string(), zod.unknown())
+export const GetTxlineOddsResponse = zod.array(GetTxlineOddsResponseItem)
 
 
 /**

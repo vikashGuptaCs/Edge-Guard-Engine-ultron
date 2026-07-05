@@ -27,6 +27,7 @@ import type {
   ErrorResponse,
   Fixture,
   FixtureTimeline,
+  GetTxlineOdds200Item,
   HealthStatus,
   ListAgentSignalsParams,
   ListAlertsParams,
@@ -39,8 +40,8 @@ import type {
   Receipt,
   ReceiptInput,
   RiskGridItem,
-  TxlineActivateInput,
-  TxlineSession
+  TxlineFixture,
+  TxlineStatus
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1316,75 +1317,236 @@ export function useGetRiskGrid<TData = Awaited<ReturnType<typeof getRiskGrid>>, 
 
 
 
-export const getActivateTxlineUrl = () => {
+export const getGetTxlineStatusUrl = () => {
 
 
 
 
-  return `/api/public/txline/activate`
+  return `/api/txline/status`
 }
 
 /**
- * @summary Activate TxLINE session via wallet signature
+ * @summary Get TxLINE connection status
  */
-export const activateTxline = async (txlineActivateInput: TxlineActivateInput, options?: RequestInit): Promise<TxlineSession> => {
+export const getTxlineStatus = async ( options?: RequestInit): Promise<TxlineStatus> => {
 
-  return customFetch<TxlineSession>(getActivateTxlineUrl(),
+  return customFetch<TxlineStatus>(getGetTxlineStatusUrl(),
   {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(txlineActivateInput)
+    method: 'GET'
+
+
   }
 );}
 
 
 
 
-export const getActivateTxlineMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateTxline>>, TError,{data: BodyType<TxlineActivateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof activateTxline>>, TError,{data: BodyType<TxlineActivateInput>}, TContext> => {
 
-const mutationKey = ['activateTxline'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof activateTxline>>, {data: BodyType<TxlineActivateInput>}> = (props) => {
-          const {data} = props ?? {};
-
-          return  activateTxline(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type ActivateTxlineMutationResult = NonNullable<Awaited<ReturnType<typeof activateTxline>>>
-    export type ActivateTxlineMutationBody = BodyType<TxlineActivateInput>
-    export type ActivateTxlineMutationError = ErrorType<ErrorResponse>
-
-    /**
- * @summary Activate TxLINE session via wallet signature
- */
-export const useActivateTxline = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateTxline>>, TError,{data: BodyType<TxlineActivateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof activateTxline>>,
-        TError,
-        {data: BodyType<TxlineActivateInput>},
-        TContext
-      > => {
-      return useMutation(getActivateTxlineMutationOptions(options));
+export const getGetTxlineStatusQueryKey = () => {
+    return [
+    `/api/txline/status`
+    ] as const;
     }
+
+
+export const getGetTxlineStatusQueryOptions = <TData = Awaited<ReturnType<typeof getTxlineStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTxlineStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTxlineStatus>>> = ({ signal }) => getTxlineStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTxlineStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTxlineStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getTxlineStatus>>>
+export type GetTxlineStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get TxLINE connection status
+ */
+
+export function useGetTxlineStatus<TData = Awaited<ReturnType<typeof getTxlineStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTxlineStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTxlineFixturesUrl = () => {
+
+
+
+
+  return `/api/txline/fixtures`
+}
+
+/**
+ * @summary Get live fixtures from TxLINE feed
+ */
+export const getTxlineFixtures = async ( options?: RequestInit): Promise<TxlineFixture[]> => {
+
+  return customFetch<TxlineFixture[]>(getGetTxlineFixturesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTxlineFixturesQueryKey = () => {
+    return [
+    `/api/txline/fixtures`
+    ] as const;
+    }
+
+
+export const getGetTxlineFixturesQueryOptions = <TData = Awaited<ReturnType<typeof getTxlineFixtures>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineFixtures>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTxlineFixturesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTxlineFixtures>>> = ({ signal }) => getTxlineFixtures({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTxlineFixtures>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTxlineFixturesQueryResult = NonNullable<Awaited<ReturnType<typeof getTxlineFixtures>>>
+export type GetTxlineFixturesQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get live fixtures from TxLINE feed
+ */
+
+export function useGetTxlineFixtures<TData = Awaited<ReturnType<typeof getTxlineFixtures>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineFixtures>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTxlineFixturesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTxlineOddsUrl = (fixtureId: number,) => {
+
+
+
+
+  return `/api/txline/odds/${fixtureId}`
+}
+
+/**
+ * @summary Get odds snapshot for a TxLINE fixture
+ */
+export const getTxlineOdds = async (fixtureId: number, options?: RequestInit): Promise<GetTxlineOdds200Item[]> => {
+
+  return customFetch<GetTxlineOdds200Item[]>(getGetTxlineOddsUrl(fixtureId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTxlineOddsQueryKey = (fixtureId: number,) => {
+    return [
+    `/api/txline/odds/${fixtureId}`
+    ] as const;
+    }
+
+
+export const getGetTxlineOddsQueryOptions = <TData = Awaited<ReturnType<typeof getTxlineOdds>>, TError = ErrorType<ErrorResponse>>(fixtureId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineOdds>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTxlineOddsQueryKey(fixtureId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTxlineOdds>>> = ({ signal }) => getTxlineOdds(fixtureId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: fixtureId !== null && fixtureId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTxlineOdds>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTxlineOddsQueryResult = NonNullable<Awaited<ReturnType<typeof getTxlineOdds>>>
+export type GetTxlineOddsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get odds snapshot for a TxLINE fixture
+ */
+
+export function useGetTxlineOdds<TData = Awaited<ReturnType<typeof getTxlineOdds>>, TError = ErrorType<ErrorResponse>>(
+ fixtureId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineOdds>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTxlineOddsQueryOptions(fixtureId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getNarrateAlertUrl = () => {
 

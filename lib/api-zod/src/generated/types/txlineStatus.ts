@@ -6,8 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface TxlineSession {
-  apiToken: string;
+export interface TxlineStatus {
+  connected: boolean;
+  fixtureCount: number;
   network: string;
-  expiresAt: number;
+  tokenConfigured: boolean;
+  /** @nullable */
+  error?: string | null;
 }
