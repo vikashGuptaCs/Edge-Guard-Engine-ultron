@@ -1,2 +1,4 @@
 - [Wouter nested routing](wouter-nested-routing.md) — Add both `/parent` AND `/parent/*` routes in parent Switch; wildcard alone skips exact path match
 - [Orval path+query params collision](orval-path-query-collision.md) — Endpoints with BOTH path params AND query params cause TS2308 in api-zod; remove query params from those endpoints
+- [Web Worker fixture readiness](web-worker-fixture-readiness.md) — Worker must start with empty fixture list then receive UPDATE_FIXTURES; use pendingFixturesRef to queue IDs that arrive before READY fires
+- [Sentinel latency via inter-snapshot gap](sentinel-latency.md) — Use gap between consecutive snapshots (not Date.now()-ts) as feed-latency proxy so agent works with seeded/static data

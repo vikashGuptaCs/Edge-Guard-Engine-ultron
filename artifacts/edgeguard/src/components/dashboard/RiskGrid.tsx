@@ -4,11 +4,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
+import { useRiskAgentContext } from "@/contexts/RiskAgentContext";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Zap } from "lucide-react";
 
 export function RiskGrid() {
   const { data: gridItems = [], isLoading } = useGetRiskGrid({
     query: { refetchInterval: 5000 }
   });
+
+  const { workerStatus, getFixtureRisk } = useRiskAgentContext();
+  const workerLive = workerStatus === 'running';
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
@@ -57,37 +63,71 @@ export function RiskGrid() {
               </TableCell>
             </TableRow>
           ) : (
-            gridItems.map((item) => (
-              <TableRow key={item.fixtureId} className="hover:bg-muted/30 transition-colors group">
-                <TableCell>
-                  <Link href={`/dashboard/matches/${item.fixtureId}`}>
-                    <div className="font-bold cursor-pointer group-hover:text-primary transition-colors">
-                      {item.homeTeam} vs {item.awayTeam}
-                    </div>
-                  </Link>
-                </TableCell>
-                <TableCell className="text-right font-medium">{item.spread.toFixed(2)}</TableCell>
-                <TableCell className={`text-right ${item.latencyMs > 200 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                  {item.latencyMs}ms
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={`text-[10px] uppercase rounded-sm ${getRiskColor(item.volatilityRisk)}`}>
-                    {item.volatilityRisk}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <span className={`text-xs ${item.sentinelStatus === 'ALERT' ? 'text-destructive font-bold animate-pulse' : 'text-muted-foreground'}`}>
-                    {item.sentinelStatus}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right font-bold text-primary">
-                  {item.edgeScore.toFixed(1)}
-                </TableCell>
-                <TableCell className={`font-bold ${getRecColor(item.recommendation)}`}>
-                  {item.recommendation}
-                </TableCell>
-              </TableRow>
-            ))
+            gridItems.map((item) => {
+              const workerRisk = getFixtureRisk(item.fixtureId);
+              const usingWorker = workerLive && workerRisk != null;
+
+              // Prefer live worker data over server data where available
+              const displayEdge = usingWorker ? workerRisk.edgeScore : item.edgeScore;
+              const displayRec  = usingWorker ? workerRisk.recommendation : item.recommendation;
+              const displayLatMs = usingWorker ? workerRisk.latencyMs : item.latencyMs;
+
+              const sentinelSig = workerRisk?.signals.find(s => s.agentName === 'Sentinel');
+              const displaySentinel = sentinelSig ? sentinelSig.signalType : item.sentinelStatus;
+
+              const volSig = workerRisk?.signals.find(s => s.agentName === 'Volatility');
+              const displayVolRisk = volSig
+                ? volSig.signalType === 'HIGH_VOLATILITY' ? 'CRITICAL'
+                : volSig.signalType === 'ELEVATED_VOL'   ? 'HIGH'
+                : volSig.signalType === 'LOW_VOLATILITY'  ? 'LOW'
+                : item.volatilityRisk
+                : item.volatilityRisk;
+
+              return (
+                <TableRow key={item.fixtureId} className="hover:bg-muted/30 transition-colors group">
+                  <TableCell>
+                    <Link href={`/dashboard/matches/${item.fixtureId}`}>
+                      <div className="font-bold cursor-pointer group-hover:text-primary transition-colors">
+                        {item.homeTeam} vs {item.awayTeam}
+                      </div>
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">{item.spread.toFixed(2)}</TableCell>
+                  <TableCell className={`text-right ${displayLatMs > 200 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {displayLatMs}ms
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={`text-[10px] uppercase rounded-sm ${getRiskColor(displayVolRisk)}`}>
+                      {displayVolRisk}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`text-xs ${displaySentinel === 'ALERT' || displaySentinel === 'TOXIC_FLOW' || displaySentinel === 'CIRCUIT_BREAKER' ? 'text-destructive font-bold animate-pulse' : 'text-muted-foreground'}`}>
+                      {displaySentinel}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className={`font-bold cursor-help ${usingWorker ? 'text-cyan-400' : 'text-primary'} flex items-center justify-end gap-1`}>
+                          {usingWorker && <Zap className="w-3 h-3 text-cyan-400" />}
+                          {displayEdge.toFixed(1)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="font-mono text-xs">
+                        {usingWorker
+                          ? `Worker-computed · consensus ${(workerRisk.signals.find(s => s.agentName === 'Orchestrator')?.payload?.consensus as string) ?? '—'}`
+                          : 'Server-side score'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell className={`font-bold ${getRecColor(displayRec)}`}>
+                    {displayRec}
+                    {usingWorker && <span className="text-[9px] text-cyan-400/70 ml-1">[W]</span>}
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
