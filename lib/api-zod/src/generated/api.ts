@@ -526,6 +526,47 @@ export const GetTxlineOddsResponse = zod.array(GetTxlineOddsResponseItem)
 
 
 /**
+ * @summary Get DVR-accumulated TxLINE events for a fixture from local DB
+ */
+export const GetTxlineEventsParams = zod.object({
+  "fixtureId": zod.coerce.number()
+})
+
+export const GetTxlineEventsResponseItem = zod.object({
+  "id": zod.number(),
+  "fixtureId": zod.number(),
+  "ts": zod.number(),
+  "category": zod.string(),
+  "payload": zod.record(zod.string(), zod.unknown())
+})
+export const GetTxlineEventsResponse = zod.array(GetTxlineEventsResponseItem)
+
+
+/**
+ * @summary Get a fresh TxLINE guest JWT for client-side signing
+ */
+export const GetTxlineGuestJwtResponse = zod.object({
+  "jwt": zod.string()
+})
+
+
+/**
+ * @summary Activate a TxLINE subscription using on-chain proof
+ */
+export const PostTxlineActivateBody = zod.object({
+  "txSig": zod.string(),
+  "walletSignature": zod.string(),
+  "jwt": zod.string(),
+  "leagues": zod.array(zod.string()).optional()
+})
+
+export const PostTxlineActivateResponse = zod.object({
+  "apiToken": zod.string(),
+  "message": zod.string()
+})
+
+
+/**
  * @summary Generate AI narration for an alert
  */
 export const NarrateAlertBody = zod.object({

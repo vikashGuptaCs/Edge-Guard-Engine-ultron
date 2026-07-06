@@ -40,7 +40,11 @@ import type {
   Receipt,
   ReceiptInput,
   RiskGridItem,
+  TxlineActivateInput,
+  TxlineActivateResult,
+  TxlineEvent,
   TxlineFixture,
+  TxlineGuestJwt,
   TxlineStatus
 } from './api.schemas';
 
@@ -1547,6 +1551,230 @@ export function useGetTxlineOdds<TData = Awaited<ReturnType<typeof getTxlineOdds
 
 
 
+
+export const getGetTxlineEventsUrl = (fixtureId: number,) => {
+
+
+
+
+  return `/api/txline/events/${fixtureId}`
+}
+
+/**
+ * @summary Get DVR-accumulated TxLINE events for a fixture from local DB
+ */
+export const getTxlineEvents = async (fixtureId: number, options?: RequestInit): Promise<TxlineEvent[]> => {
+
+  return customFetch<TxlineEvent[]>(getGetTxlineEventsUrl(fixtureId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTxlineEventsQueryKey = (fixtureId: number,) => {
+    return [
+    `/api/txline/events/${fixtureId}`
+    ] as const;
+    }
+
+
+export const getGetTxlineEventsQueryOptions = <TData = Awaited<ReturnType<typeof getTxlineEvents>>, TError = ErrorType<unknown>>(fixtureId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTxlineEventsQueryKey(fixtureId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTxlineEvents>>> = ({ signal }) => getTxlineEvents(fixtureId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: fixtureId !== null && fixtureId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTxlineEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTxlineEventsQueryResult = NonNullable<Awaited<ReturnType<typeof getTxlineEvents>>>
+export type GetTxlineEventsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get DVR-accumulated TxLINE events for a fixture from local DB
+ */
+
+export function useGetTxlineEvents<TData = Awaited<ReturnType<typeof getTxlineEvents>>, TError = ErrorType<unknown>>(
+ fixtureId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTxlineEventsQueryOptions(fixtureId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTxlineGuestJwtUrl = () => {
+
+
+
+
+  return `/api/txline/guest-jwt`
+}
+
+/**
+ * @summary Get a fresh TxLINE guest JWT for client-side signing
+ */
+export const getTxlineGuestJwt = async ( options?: RequestInit): Promise<TxlineGuestJwt> => {
+
+  return customFetch<TxlineGuestJwt>(getGetTxlineGuestJwtUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTxlineGuestJwtQueryKey = () => {
+    return [
+    `/api/txline/guest-jwt`
+    ] as const;
+    }
+
+
+export const getGetTxlineGuestJwtQueryOptions = <TData = Awaited<ReturnType<typeof getTxlineGuestJwt>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineGuestJwt>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTxlineGuestJwtQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTxlineGuestJwt>>> = ({ signal }) => getTxlineGuestJwt({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTxlineGuestJwt>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTxlineGuestJwtQueryResult = NonNullable<Awaited<ReturnType<typeof getTxlineGuestJwt>>>
+export type GetTxlineGuestJwtQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get a fresh TxLINE guest JWT for client-side signing
+ */
+
+export function useGetTxlineGuestJwt<TData = Awaited<ReturnType<typeof getTxlineGuestJwt>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTxlineGuestJwt>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTxlineGuestJwtQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPostTxlineActivateUrl = () => {
+
+
+
+
+  return `/api/txline/activate`
+}
+
+/**
+ * @summary Activate a TxLINE subscription using on-chain proof
+ */
+export const postTxlineActivate = async (txlineActivateInput: TxlineActivateInput, options?: RequestInit): Promise<TxlineActivateResult> => {
+
+  return customFetch<TxlineActivateResult>(getPostTxlineActivateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(txlineActivateInput)
+  }
+);}
+
+
+
+
+export const getPostTxlineActivateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postTxlineActivate>>, TError,{data: BodyType<TxlineActivateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postTxlineActivate>>, TError,{data: BodyType<TxlineActivateInput>}, TContext> => {
+
+const mutationKey = ['postTxlineActivate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postTxlineActivate>>, {data: BodyType<TxlineActivateInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postTxlineActivate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostTxlineActivateMutationResult = NonNullable<Awaited<ReturnType<typeof postTxlineActivate>>>
+    export type PostTxlineActivateMutationBody = BodyType<TxlineActivateInput>
+    export type PostTxlineActivateMutationError = ErrorType<void>
+
+    /**
+ * @summary Activate a TxLINE subscription using on-chain proof
+ */
+export const usePostTxlineActivate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postTxlineActivate>>, TError,{data: BodyType<TxlineActivateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof postTxlineActivate>>,
+        TError,
+        {data: BodyType<TxlineActivateInput>},
+        TContext
+      > => {
+      return useMutation(getPostTxlineActivateMutationOptions(options));
+    }
 
 export const getNarrateAlertUrl = () => {
 

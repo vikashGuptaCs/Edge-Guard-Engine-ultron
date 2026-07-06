@@ -187,6 +187,32 @@ export interface TxlineFixture {
   status?: string | null;
 }
 
+export type TxlineEventPayload = { [key: string]: unknown };
+
+export interface TxlineEvent {
+  id: number;
+  fixtureId: number;
+  ts: number;
+  category: string;
+  payload: TxlineEventPayload;
+}
+
+export interface TxlineGuestJwt {
+  jwt: string;
+}
+
+export interface TxlineActivateInput {
+  txSig: string;
+  walletSignature: string;
+  jwt: string;
+  leagues?: string[];
+}
+
+export interface TxlineActivateResult {
+  apiToken: string;
+  message: string;
+}
+
 export type NarrateInputAgentSignalsItem = { [key: string]: unknown };
 
 export type NarrateInputContext = { [key: string]: unknown };

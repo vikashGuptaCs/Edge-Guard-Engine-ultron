@@ -39,7 +39,7 @@ interface TxlineScoreEntry {
 let cachedJwt: string | null = null;
 let jwtExpiresAt = 0;
 
-async function getGuestJwt(): Promise<string> {
+export async function getGuestJwt(): Promise<string> {
   if (cachedJwt && Date.now() < jwtExpiresAt) {
     return cachedJwt;
   }
@@ -85,7 +85,9 @@ async function txlineRequest<T>(path: string, retried = false): Promise<T> {
     throw new Error(`TxLINE API error ${response.status}: ${text.slice(0, 200)}`);
   }
 
-  return response.json() as Promise<T>;
+  const text = await response.text();
+  if (!text.trim() || text.trim() === '""') return [] as unknown as T;
+  return JSON.parse(text) as T;
 }
 
 export async function testTxlineConnection(): Promise<{

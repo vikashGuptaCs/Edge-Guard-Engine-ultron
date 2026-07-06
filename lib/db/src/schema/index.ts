@@ -5,3 +5,4 @@ export * from "./risk-metrics";
 export * from "./agent-signals";
 export * from "./alerts";
 export * from "./receipts";
+export * from "./txline-events";

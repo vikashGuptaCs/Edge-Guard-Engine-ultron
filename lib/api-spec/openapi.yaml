@@ -404,6 +404,63 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /txline/events/{fixtureId}:
+    get:
+      operationId: getTxlineEvents
+      tags: [txline]
+      summary: Get DVR-accumulated TxLINE events for a fixture from local DB
+      parameters:
+        - name: fixtureId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: DVR events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TxlineEvent"
+
+  /txline/guest-jwt:
+    get:
+      operationId: getTxlineGuestJwt
+      tags: [txline]
+      summary: Get a fresh TxLINE guest JWT for client-side signing
+      responses:
+        "200":
+          description: Guest JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxlineGuestJwt"
+
+  /txline/activate:
+    post:
+      operationId: postTxlineActivate
+      tags: [txline]
+      summary: Activate a TxLINE subscription using on-chain proof
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TxlineActivateInput"
+      responses:
+        "200":
+          description: Activation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxlineActivateResult"
+        "400":
+          description: Missing required fields
+        "502":
+          description: TxLINE activation failed
+
   /narrate:
     post:
       operationId: narrateAlert
@@ -826,6 +883,64 @@ components:
         - awayTeam
         - startTime
         - competitionId
+
+    TxlineEvent:
+      type: object
+      properties:
+        id:
+          type: number
+        fixtureId:
+          type: number
+        ts:
+          type: number
+        category:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - fixtureId
+        - ts
+        - category
+        - payload
+
+    TxlineGuestJwt:
+      type: object
+      properties:
+        jwt:
+          type: string
+      required:
+        - jwt
+
+    TxlineActivateInput:
+      type: object
+      properties:
+        txSig:
+          type: string
+        walletSignature:
+          type: string
+        jwt:
+          type: string
+        leagues:
+          type: array
+          items:
+            type: string
+      required:
+        - txSig
+        - walletSignature
+        - jwt
+
+    TxlineActivateResult:
+      type: object
+      properties:
+        apiToken:
+          type: string
+        message:
+          type: string
+      required:
+        - apiToken
+        - message
 
     NarrateInput:
       type: object

@@ -28,6 +28,10 @@ if (!basePath) {
 
 export default defineConfig({
   base: basePath,
+  define: {
+    global: "globalThis",
+    "process.env": {},
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -50,8 +54,15 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      buffer: "buffer/",
     },
     dedupe: ["react", "react-dom"],
+  },
+  optimizeDeps: {
+    include: ["buffer", "@solana/web3.js", "@solana/wallet-adapter-react", "@solana/wallet-adapter-phantom", "@solana/wallet-adapter-base"],
+    esbuildOptions: {
+      define: { global: "globalThis" },
+    },
   },
   root: path.resolve(import.meta.dirname),
   build: {
