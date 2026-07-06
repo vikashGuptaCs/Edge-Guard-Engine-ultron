@@ -30,7 +30,7 @@ const STEP_LABELS: Record<string, string> = {
 
 export default function SettingsPage() {
   const { enabled, threshold, hardLocked, setEnabled, setThreshold, setHardLocked } = useAutopilot();
-  const { network, setNetwork, connected, publicKey, disconnect } = useWallet();
+  const { network, setNetwork, connected, publicKey, disconnect, source } = useWallet();
   const [copied, setCopied] = useState(false);
 
   const { data: txlineStatus, isLoading: statusLoading, refetch: refetchStatus } = useGetTxlineStatus({
@@ -82,9 +82,11 @@ export default function SettingsPage() {
             {connected && publicKey ? (
               <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-border/50">
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <div className={`w-2 h-2 rounded-full ${source === 'phantom' ? 'bg-green-400 animate-pulse' : 'bg-blue-400'}`} />
                   <div>
-                    <div className="font-mono text-sm font-semibold text-green-400">Phantom Connected</div>
+                    <div className={`font-mono text-sm font-semibold ${source === 'phantom' ? 'text-green-400' : 'text-slate-300'}`}>
+                      {source === 'phantom' ? 'Phantom Connected' : 'Read-Only Viewer'}
+                    </div>
                     <div className="font-mono text-xs text-muted-foreground">{truncateAddress(publicKey)}</div>
                   </div>
                 </div>

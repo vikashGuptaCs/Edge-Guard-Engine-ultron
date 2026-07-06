@@ -126,12 +126,12 @@ export default function AuthPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {isPhantomInstalled ? (
-                      <Badge variant="outline" className="border-emerald-400/60 text-emerald-400 text-[10px] bg-emerald-400/10 font-mono">
+                      <Badge variant="outline" className="border-emerald-400/60 text-emerald-400 text-[10px] bg-emerald-400/10 font-mono whitespace-nowrap">
                         ● Detected
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="border-amber-400/60 text-amber-400 text-[10px] bg-amber-400/10 font-mono">
-                        Install Required
+                      <Badge variant="outline" className="border-amber-400/60 text-amber-400 text-[10px] bg-amber-400/10 font-mono whitespace-nowrap">
+                        Install
                       </Badge>
                     )}
                   </div>
