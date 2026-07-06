@@ -9,7 +9,7 @@ import { KillSwitch } from "../dashboard/KillSwitch";
 import { useHealthCheck } from "@workspace/api-client-react";
 
 export function TopBar() {
-  const { connected, publicKey, network, disconnect } = useWallet();
+  const { connected, publicKey, source, network, disconnect } = useWallet();
   const { theme, setTheme } = useTheme();
   const { hardLocked } = useAutopilot();
   
@@ -19,6 +19,12 @@ export function TopBar() {
 
   const truncateAddress = (addr: string) =>
     addr.length > 8 ? `${addr.slice(0, 4)}...${addr.slice(-4)}` : addr;
+
+  const walletLabel = connected && publicKey
+    ? source === 'phantom'
+      ? `PHANTOM • ${truncateAddress(publicKey)}`
+      : `READ-ONLY • ${truncateAddress(publicKey)}`
+    : null;
 
   return (
     <header className={`h-14 border-b flex items-center justify-between px-4 sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-colors ${hardLocked ? 'border-destructive/50 shadow-[0_0_15px_rgba(255,0,0,0.2)]' : 'border-border'}`}>
@@ -69,7 +75,7 @@ export function TopBar() {
         {connected && publicKey ? (
           <div className="flex items-center gap-2 bg-card border rounded-md px-3 py-1.5 text-sm font-mono">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-muted-foreground">{truncateAddress(publicKey)}</span>
+            <span className="font-semibold text-foreground">{walletLabel}</span>
             <Button variant="ghost" size="sm" className="h-auto p-0 ml-2 text-muted-foreground hover:text-foreground" onClick={disconnect}>
               Disconnect
             </Button>

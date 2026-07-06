@@ -51,7 +51,7 @@ export default function AuthPage() {
         <Button
           variant="ghost"
           className="mb-6 font-mono text-muted-foreground hover:text-foreground"
-          onClick={() => mode === "viewer" ? setMode("select") : setLocation("/")}
+          onClick={() => (mode === "viewer" ? setMode("select") : setLocation("/"))}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           {mode === "viewer" ? "Back" : "Home"}
@@ -60,13 +60,12 @@ export default function AuthPage() {
         <Card className="border-border bg-card/50 backdrop-blur shadow-2xl">
           <CardHeader className="text-center pb-2">
             <CardTitle className="text-2xl font-mono tracking-tight text-primary">TERMINAL_AUTH</CardTitle>
-            <CardDescription className="font-mono">Authenticate to access EdgeGuard systems</CardDescription>
+            <CardDescription className="font-mono">Authenticate with a Solana browser wallet or use a read-only public key.</CardDescription>
           </CardHeader>
 
           <CardContent className="pt-6">
             {mode === "select" ? (
               <div className="grid gap-4">
-                {/* Phantom wallet button */}
                 <Button
                   size="lg"
                   className="w-full h-16 text-lg font-mono flex items-center justify-between px-6 bg-purple-600 hover:bg-purple-700 text-white border-0 disabled:opacity-70"
@@ -161,6 +160,12 @@ export default function AuthPage() {
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   Enter Read-Only Mode
                 </Button>
+              </div>
+            )}
+
+            {connectError && (
+              <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm font-mono text-destructive">
+                {connectError}
               </div>
             )}
           </CardContent>
