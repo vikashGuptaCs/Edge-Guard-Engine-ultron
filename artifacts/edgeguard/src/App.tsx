@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { WalletProvider } from "@/hooks/use-wallet";
+import { useWalletRestore } from "@/hooks/use-wallet-restore";
 import { AutopilotProvider } from "@/hooks/use-autopilot";
 import NotFound from "@/pages/not-found";
 
@@ -62,18 +63,25 @@ function App() {
     <ThemeProvider defaultTheme="dark" storageKey="edgeguard-theme">
       <QueryClientProvider client={queryClient}>
         <WalletProvider>
-          <AutopilotProvider>
-            <TooltipProvider delayDuration={100}>
-              <WouterRouter base={import.meta.env.BASE_URL?.replace(/\/$/, "") || ""}>
-                <Router />
-              </WouterRouter>
-              <Toaster />
-            </TooltipProvider>
-          </AutopilotProvider>
+          <AuthLoader>
+            <AutopilotProvider>
+              <TooltipProvider delayDuration={100}>
+                <WouterRouter base={import.meta.env.BASE_URL?.replace(/\/$/, "") || ""}>
+                  <Router />
+                </WouterRouter>
+                <Toaster />
+              </TooltipProvider>
+            </AutopilotProvider>
+          </AuthLoader>
         </WalletProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );
+}
+
+function AuthLoader({ children }: { children: React.ReactNode }) {
+  useWalletRestore();
+  return <>{children}</>;
 }
 
 export default App;

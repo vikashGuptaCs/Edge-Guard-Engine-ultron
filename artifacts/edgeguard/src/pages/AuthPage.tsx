@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useWallet } from "@/hooks/use-wallet";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Key, Wallet, ArrowLeft, Loader2, CheckCircle2, XCircle, ExternalLink, ShieldCheck, RefreshCw, Copy, Check } from "lucide-react";
+import { AlertTriangle, Key, Wallet, ArrowLeft, Loader2, CheckCircle2, XCircle, ExternalLink, ShieldCheck, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
@@ -14,7 +14,6 @@ export default function AuthPage() {
   const [viewerKey, setViewerKey] = useState("");
   const [connectError, setConnectError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (connected && publicKey) {
@@ -65,19 +64,9 @@ export default function AuthPage() {
     }
   };
 
-  const copyToClipboard = async () => {
-    if (publicKey) {
-      try {
-        await navigator.clipboard.writeText(publicKey);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (err) {
-        console.error("Failed to copy:", err);
-      }
-    }
-  };
-
-  const isPhantomInstalled = typeof window !== "undefined" && !!(window as any).phantom?.solana?.isPhantom;
+  const isPhantomInstalled =
+    typeof window !== "undefined" &&
+    (!!(window as any).solana?.isPhantom || !!(window as any).phantom?.solana?.isPhantom);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.16),transparent_50%)] bg-background flex flex-col items-center justify-center p-4">
@@ -294,97 +283,6 @@ export default function AuthPage() {
 
         <p className="text-center text-xs font-mono text-muted-foreground mt-4 max-w-xs mx-auto">
           Phantom connects to Solana Devnet for subscription management and on-chain audit receipts.
-        </p>
-      </div>
-    </div>
-  );
-}
-                  </div>
-                </Button>
-
-                {!isPhantomInstalled && (
-                  <a
-                    href="https://phantom.app"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 text-xs font-mono text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    Install Phantom at phantom.app
-                  </a>
-                )}
-
-                {connectError && (
-                  <Alert variant="destructive" className="bg-destructive/10 border-destructive/50">
-                    <XCircle className="h-4 w-4" />
-                    <AlertDescription className="font-mono text-xs">{connectError}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-muted" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase font-mono">
-                    <span className="bg-card px-2 text-muted-foreground">Or viewer mode</span>
-                  </div>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full h-14 font-mono flex items-center justify-center gap-2 border-dashed border-2 hover:border-primary hover:text-primary transition-colors"
-                  onClick={() => setMode("viewer")}
-                >
-                  <Key className="w-5 h-5" />
-                  <span>Read-Only Viewer Mode</span>
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Alert className="bg-accent/10 border-accent/50 text-accent-foreground">
-                  <AlertTriangle className="h-4 w-4 text-accent" />
-                  <AlertTitle className="font-mono font-bold uppercase tracking-wider text-accent">Viewer Mode</AlertTitle>
-                  <AlertDescription className="font-mono text-xs mt-2 text-muted-foreground">
-                    Enter a Solana public key (Base58) to view the dashboard in read-only mode. No transactions can be executed.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-mono text-muted-foreground uppercase">Solana Public Key</label>
-                  <textarea
-                    placeholder="Paste a Base58 public key..."
-                    className="w-full font-mono h-24 bg-background border border-border rounded-md p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={viewerKey}
-                    onChange={(e) => setViewerKey(e.target.value)}
-                  />
-                </div>
-
-                <Button
-                  size="lg"
-                  className="w-full font-mono uppercase tracking-widest font-bold h-12"
-                  disabled={viewerKey.trim().length < 32}
-                  onClick={handleViewerMode}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Enter Read-Only Mode
-                </Button>
-              </div>
-            )}
-
-            {connectError && (
-              <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm font-mono text-destructive">
-                {connectError}
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="justify-center border-t border-border/50 py-4 text-xs font-mono text-muted-foreground">
-            Solana Devnet · End-to-end encryption active · v3.0.5
-          </CardFooter>
-        </Card>
-
-        <p className="text-center text-xs font-mono text-muted-foreground mt-4">
-          Phantom connects to Solana Devnet for TxLINE subscription and on-chain audit receipts.
         </p>
       </div>
     </div>

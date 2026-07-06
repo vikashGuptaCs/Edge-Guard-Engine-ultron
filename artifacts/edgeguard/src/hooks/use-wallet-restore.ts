@@ -19,6 +19,8 @@ export function useWalletRestore() {
       return;
     }
 
+    restoreAttemptedRef.current = true;
+
     const attemptRestore = async () => {
       try {
         if (typeof window === 'undefined') return;
@@ -27,8 +29,6 @@ export function useWalletRestore() {
         if (!storedSource || !['phantom', 'manual'].includes(storedSource)) {
           return;
         }
-
-        restoreAttemptedRef.current = true;
 
         if (storedSource === 'manual') {
           const storedKey = window.localStorage.getItem(LAST_PUBLIC_KEY_KEY);
@@ -42,7 +42,6 @@ export function useWalletRestore() {
       } catch (err) {
         // Silently fail - user can reconnect manually
         console.debug('Wallet restore attempt failed:', err);
-        restoreAttemptedRef.current = true;
       }
     };
 
