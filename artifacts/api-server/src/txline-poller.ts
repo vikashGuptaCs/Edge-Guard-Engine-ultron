@@ -86,11 +86,30 @@ async function pollFixture(fixtureId: number): Promise<void> {
 
     if (oddsRaw.status === "fulfilled" && Array.isArray(oddsRaw.value)) {
       await upsertEvents(fixtureId, "odds", oddsRaw.value);
+      await insertOddsSnapshots(fixtureId, oddsRaw.value as any[]);
     }
 
     if (scoresRaw.status === "fulfilled") {
       const scores = Array.isArray(scoresRaw.value) ? scoresRaw.value : await safeParse(String(scoresRaw.value)).then(r => r);
       await upsertEvents(fixtureId, "scores", scores);
+      try {
+        for (const s of scores as any[]) {
+          const home = typeof s.HomeScore === 'number' ? s.HomeScore : (s.homeScore ?? null);
+          const away = typeof s.AwayScore === 'number' ? s.AwayScore : (s.awayScore ?? null);
+          const minute = typeof s.Minute === 'number' ? s.Minute : (s.minute ?? null);
+          const status = s.GameState != null ? (s.GameState === 1 ? 'live' : s.GameState === 3 ? 'finished' : null) : null;
+          const update: any = {};
+          if (home != null) update.homeScore = home;
+          if (away != null) update.awayScore = away;
+          if (minute != null) update.minutePlayed = minute;
+          if (status) update.status = status;
+          if (Object.keys(update).length) {
+            await db.update(fixturesTable).set(update).where(fixturesTable.fixtureId.eq(fixtureId));
+          }
+        }
+      } catch (err) {
+        // ignore per-item update errors
+      }
     }
   } catch (err) {
     logger.warn({ err, fixtureId }, "txline poller: fixture poll failed");
@@ -101,6 +120,8 @@ async function runPollCycle(): Promise<void> {
   try {
     const fixtures = await getTxlineFixtures();
     if (!Array.isArray(fixtures) || fixtures.length === 0) return;
+
+    await Promise.allSettled(fixtures.map((f) => upsertFixtureRecord(f)));
 
     await Promise.allSettled(
       fixtures.map((f) => pollFixture(f.FixtureId))
