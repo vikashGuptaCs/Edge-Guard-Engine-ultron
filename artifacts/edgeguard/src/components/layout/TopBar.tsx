@@ -32,7 +32,7 @@ import {
 
 export function TopBar() {
   const [, setLocation] = useLocation();
-  const { connected, publicKey, source, network, disconnect, connectionState, error, reconnect, setNetwork } = useWallet();
+  const { connected, publicKey, source, network, disconnect, connectionState, error, reconnect, setNetwork, authState, accessMode } = useWallet();
   const { theme, setTheme } = useTheme();
   const { hardLocked } = useAutopilot();
   const [isNetworkMenuOpen, setIsNetworkMenuOpen] = useState(false);
@@ -51,7 +51,7 @@ export function TopBar() {
     ? source === "phantom"
       ? `PHANTOM • ${truncateAddress(publicKey)}`
       : `VIEWER • ${truncateAddress(publicKey)}`
-    : null;
+    : "READ ONLY";
 
   const isConnecting = connectionState === "connecting" || connectionState === "reconnecting";
   const isError = connectionState === "error" || error;
@@ -206,6 +206,12 @@ export function TopBar() {
                 <div className="text-muted-foreground">
                   <span className="text-foreground font-semibold">Type:</span> {source === "phantom" ? "Phantom Wallet" : "Read-Only Viewer"}
                 </div>
+                <div className="text-muted-foreground">
+                  <span className="text-foreground font-semibold">Auth:</span> {authState}
+                </div>
+                <div className="text-muted-foreground">
+                  <span className="text-foreground font-semibold">Mode:</span> {accessMode}
+                </div>
                 <div className="text-muted-foreground break-all">
                   <span className="text-foreground font-semibold">Address:</span> {publicKey}
                 </div>
@@ -243,7 +249,7 @@ export function TopBar() {
             variant="outline"
             size="sm"
             className="font-mono text-xs transition-all duration-200 hover:bg-primary/10 hover:text-primary"
-            onClick={() => setLocation("/auth")}
+            onClick={() => setLocation("/dashboard")}
           >
             {isConnecting ? (
               <>
@@ -253,7 +259,7 @@ export function TopBar() {
             ) : (
               <>
                 <Wallet2 className="w-3 h-3 mr-2" />
-                Connect Wallet
+                Enter Read-Only
               </>
             )}
           </Button>

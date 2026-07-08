@@ -265,7 +265,7 @@ paths:
     post:
       operationId: createReceipt
       tags: [receipts]
-      summary: Create a new on-chain receipt (execute or veto)
+      summary: Create a receipt or proposal row
       requestBody:
         required: true
         content:
@@ -280,11 +280,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/Receipt"
 
+  /receipts/{receiptId}/lifecycle:
+    post:
+      operationId: updateReceiptLifecycle
+      tags: [receipts]
+      summary: Update receipt lifecycle state
+      parameters:
+        - name: receiptId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiptLifecycleInput"
+      responses:
+        "200":
+          description: Updated receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Receipt"
+
   /receipts/{receiptId}/retry:
     post:
       operationId: retryReceipt
       tags: [receipts]
-      summary: Retry a failed receipt transaction
+      summary: Retry a failed or vetoed receipt transaction
       parameters:
         - name: receiptId
           in: path
@@ -691,6 +716,30 @@ components:
           type: integer
         status:
           type: string
+          enum: [proposed, approved, submitted, confirmed, failed, vetoed]
+        proposalStatus:
+          type: ["string", "null"]
+          enum: [proposed, approved, vetoed, null]
+        approvedBy:
+          type: ["string", "null"]
+        approvedAt:
+          type: ["string", "null"]
+          format: date-time
+        vetoedAt:
+          type: ["string", "null"]
+          format: date-time
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+        confirmedAt:
+          type: ["string", "null"]
+          format: date-time
+        failedAt:
+          type: ["string", "null"]
+          format: date-time
+        executionMode:
+          type: ["string", "null"]
+          enum: [manual, autopilot, null]
         fixture:
           $ref: "#/components/schemas/Fixture"
         alert:
@@ -709,7 +758,7 @@ components:
         fixtureId:
           type: integer
         txSignature:
-          type: string
+          type: ["string", "null"]
         memoJson:
           type: object
           additionalProperties: true
@@ -717,12 +766,33 @@ components:
           type: string
         status:
           type: string
+          enum: [proposed, approved, submitted, confirmed, failed, vetoed]
+        proposalStatus:
+          type: ["string", "null"]
+          enum: [proposed, approved, vetoed, null]
+        executionMode:
+          type: ["string", "null"]
+          enum: [manual, autopilot, null]
+        approvedBy:
+          type: ["string", "null"]
       required:
         - fixtureId
-        - txSignature
         - memoJson
         - cluster
         - status
+
+    ReceiptLifecycleInput:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [approve, submit, confirm, fail, veto]
+        approvedBy:
+          type: ["string", "null"]
+        txSignature:
+          type: ["string", "null"]
+      required:
+        - action
 
     DashboardSummary:
       type: object

@@ -116,6 +116,41 @@ export interface Alert {
 
 export type ReceiptMemoJson = { [key: string]: unknown };
 
+export type ReceiptStatus = typeof ReceiptStatus[keyof typeof ReceiptStatus];
+
+
+export const ReceiptStatus = {
+  proposed: 'proposed',
+  approved: 'approved',
+  submitted: 'submitted',
+  confirmed: 'confirmed',
+  failed: 'failed',
+  vetoed: 'vetoed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ReceiptProposalStatus = typeof ReceiptProposalStatus[keyof typeof ReceiptProposalStatus] | null;
+
+
+export const ReceiptProposalStatus = {
+  proposed: 'proposed',
+  approved: 'approved',
+  vetoed: 'vetoed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ReceiptExecutionMode = typeof ReceiptExecutionMode[keyof typeof ReceiptExecutionMode] | null;
+
+
+export const ReceiptExecutionMode = {
+  manual: 'manual',
+  autopilot: 'autopilot',
+} as const;
+
 export interface Receipt {
   id: number;
   /** @nullable */
@@ -127,21 +162,98 @@ export interface Receipt {
   memoJson?: ReceiptMemoJson;
   cluster: string;
   ts: number;
-  status: string;
+  status: ReceiptStatus;
+  /** @nullable */
+  proposalStatus?: ReceiptProposalStatus;
+  /** @nullable */
+  approvedBy?: string | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  vetoedAt?: string | null;
+  /** @nullable */
+  submittedAt?: string | null;
+  /** @nullable */
+  confirmedAt?: string | null;
+  /** @nullable */
+  failedAt?: string | null;
+  /** @nullable */
+  executionMode?: ReceiptExecutionMode;
   fixture?: Fixture;
   alert?: Alert;
 }
 
 export type ReceiptInputMemoJson = { [key: string]: unknown };
 
+export type ReceiptInputStatus = typeof ReceiptInputStatus[keyof typeof ReceiptInputStatus];
+
+
+export const ReceiptInputStatus = {
+  proposed: 'proposed',
+  approved: 'approved',
+  submitted: 'submitted',
+  confirmed: 'confirmed',
+  failed: 'failed',
+  vetoed: 'vetoed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ReceiptInputProposalStatus = typeof ReceiptInputProposalStatus[keyof typeof ReceiptInputProposalStatus] | null;
+
+
+export const ReceiptInputProposalStatus = {
+  proposed: 'proposed',
+  approved: 'approved',
+  vetoed: 'vetoed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ReceiptInputExecutionMode = typeof ReceiptInputExecutionMode[keyof typeof ReceiptInputExecutionMode] | null;
+
+
+export const ReceiptInputExecutionMode = {
+  manual: 'manual',
+  autopilot: 'autopilot',
+} as const;
+
 export interface ReceiptInput {
   /** @nullable */
   alertId?: number | null;
   fixtureId: number;
-  txSignature: string;
+  /** @nullable */
+  txSignature?: string | null;
   memoJson: ReceiptInputMemoJson;
   cluster: string;
-  status: string;
+  status: ReceiptInputStatus;
+  /** @nullable */
+  proposalStatus?: ReceiptInputProposalStatus;
+  /** @nullable */
+  executionMode?: ReceiptInputExecutionMode;
+  /** @nullable */
+  approvedBy?: string | null;
+}
+
+export type ReceiptLifecycleInputAction = typeof ReceiptLifecycleInputAction[keyof typeof ReceiptLifecycleInputAction];
+
+
+export const ReceiptLifecycleInputAction = {
+  approve: 'approve',
+  submit: 'submit',
+  confirm: 'confirm',
+  fail: 'fail',
+  veto: 'veto',
+} as const;
+
+export interface ReceiptLifecycleInput {
+  action: ReceiptLifecycleInputAction;
+  /** @nullable */
+  approvedBy?: string | null;
+  /** @nullable */
+  txSignature?: string | null;
 }
 
 export interface DashboardSummary {

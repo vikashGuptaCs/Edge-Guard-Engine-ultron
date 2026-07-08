@@ -8,24 +8,41 @@ import {
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { Connection, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
 
-type WalletSource = 'phantom' | 'manual' | null;
-type Network = 'devnet' | 'mainnet';
-type ConnectionState = 'idle' | 'connecting' | 'connected' | 'disconnecting' | 'error' | 'reconnecting';
+export type WalletSource = 'phantom' | 'manual' | null;
+export type Network = 'devnet' | 'mainnet';
+export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'disconnecting' | 'error' | 'reconnecting';
+export type WalletAccessMode =
+  | 'read_only'
+  | 'wallet_connected_manual'
+  | 'wallet_connected_autopilot_pending_approval'
+  | 'wallet_connected_autopilot_active';
+export type WalletAuthState = 'unknown' | 'restoring' | 'connected' | 'disconnected' | 'error';
 
 interface WalletContextType {
   connected: boolean;
   connecting: boolean;
   connectionState: ConnectionState;
+  authState: WalletAuthState;
+  accessMode: WalletAccessMode;
   publicKey: string | null;
   source: WalletSource;
   network: Network;
   error: string | null;
+  lastWalletError: string | null;
   isRetrying: boolean;
+  isReadOnly: boolean;
+  canExecuteManually: boolean;
+  canAutopilotSubmit: boolean;
+  hasExecutionWallet: boolean;
   connect: (source: WalletSource, key?: string) => Promise<void>;
   disconnect: () => Promise<void>;
   reconnect: () => Promise<void>;
+  setAccessMode: (mode: WalletAccessMode) => void;
   setNetwork: (network: Network) => void;
   clearError: () => void;
+  startRestore: () => void;
+  finishRestore: (restoredConnection: boolean) => void;
+  failRestore: (message?: string | null) => void;
   signMessage: (message: Uint8Array) => Promise<Uint8Array>;
   sendTransaction: (tx: Transaction | VersionedTransaction) => Promise<string>;
   getConnection: () => Connection;
@@ -96,6 +113,8 @@ function InnerWalletProvider({
   const [manualPublicKey, setManualPublicKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
+  const [authState, setAuthState] = useState<WalletAuthState>('unknown');
+  const [accessMode, setAccessModeState] = useState<WalletAccessMode>('read_only');
   const [isRetrying, setIsRetrying] = useState(false);
   const retryCountRef = useRef(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -126,6 +145,7 @@ function InnerWalletProvider({
       setManualPublicKey(null);
       setError(null);
       setConnectionState('connected');
+      setAuthState('connected');
       retryCountRef.current = 0;
       return;
     }
@@ -137,7 +157,15 @@ function InnerWalletProvider({
 
     if (!manualPublicKey) {
       setSource(null);
-      setConnectionState('idle');
+      setAccessModeState('read_only');
+      setConnectionState((current) => (current === 'error' || current === 'disconnecting' ? current : 'idle'));
+      setAuthState((current) => {
+        if (current === 'restoring' || current === 'error') {
+          return current;
+        }
+
+        return 'disconnected';
+      });
     }
   }, [adapter.connected, adapter.connecting, adapter.publicKey, adapter.wallet, manualPublicKey]);
 
@@ -170,19 +198,25 @@ function InnerWalletProvider({
 
         try {
           setConnectionState('connecting');
+          setAuthState('unknown');
           const parsed = new PublicKey(normalizedKey);
           setManualPublicKey(parsed.toBase58());
           setSource('manual');
           setConnectionState('connected');
+          setAuthState('connected');
+          setAccessModeState('read_only');
           return;
         } catch {
           setConnectionState('error');
+          setAuthState('error');
+          setAccessModeState('read_only');
           throw new Error('That public key is invalid. Please enter a valid Base58 Solana address.');
         }
       }
 
       if (nextSource === 'phantom') {
         setConnectionState('connecting');
+        setAuthState('unknown');
 
         try {
           if (!adapter.wallet) {
@@ -196,16 +230,20 @@ function InnerWalletProvider({
           if (adapter.connected && adapter.publicKey) {
             setSource('phantom');
             setConnectionState('connected');
+            setAuthState('connected');
             return;
           }
 
           await adapter.connect();
           setSource('phantom');
           setConnectionState('connected');
+          setAuthState('connected');
           return;
         } catch (err) {
           setConnectionState('error');
+          setAuthState('error');
           setSource(null);
+          setAccessModeState('read_only');
           const errorMsg = formatWalletError(err);
           setError(errorMsg);
           throw new Error(errorMsg);
@@ -228,6 +266,7 @@ function InnerWalletProvider({
     if (retryCountRef.current >= MAX_RETRY_ATTEMPTS) {
       setError('Failed to reconnect after multiple attempts. Please reconnect manually.');
       setConnectionState('error');
+      setAuthState('error');
       return;
     }
 
@@ -257,7 +296,9 @@ function InnerWalletProvider({
     setError(null);
     setManualPublicKey(null);
     setSource(null);
+    setAccessModeState('read_only');
     setConnectionState('disconnecting');
+    setAuthState('disconnected');
     setIsRetrying(false);
     retryCountRef.current = 0;
     lastConnectionSourceRef.current = null;
@@ -279,7 +320,7 @@ function InnerWalletProvider({
 
   const signMessage = useCallback(
     async (message: Uint8Array) => {
-      if (!adapter.connected || !adapter.signMessage) {
+      if (!adapter.connected || !adapter.signMessage || source !== 'phantom') {
         throw new Error('Wallet is not connected. Please connect Phantom first.');
       }
 
@@ -291,12 +332,12 @@ function InnerWalletProvider({
         throw new Error(errorMsg);
       }
     },
-    [adapter]
+    [adapter, source]
   );
 
   const sendTransaction = useCallback(
     async (tx: Transaction | VersionedTransaction) => {
-      if (!adapter.publicKey) {
+      if (!adapter.publicKey || source !== 'phantom') {
         throw new Error('Wallet is not connected. Please connect Phantom first.');
       }
 
@@ -309,7 +350,7 @@ function InnerWalletProvider({
         throw new Error(errorMsg);
       }
     },
-    [adapter, devnetConnection, network]
+    [adapter, devnetConnection, network, source]
   );
 
   const getConnection = useCallback(() => {
@@ -321,26 +362,114 @@ function InnerWalletProvider({
     return adapter.publicKey?.toBase58() ?? null;
   }, [adapter.publicKey, manualPublicKey, source]);
 
+  const hasExecutionWallet = useMemo(
+    () => source === 'phantom' && Boolean(adapter.publicKey?.toBase58()),
+    [adapter.publicKey, source]
+  );
+
+  const setAccessMode = useCallback(
+    (mode: WalletAccessMode) => {
+      if (mode === 'read_only') {
+        setAccessModeState('read_only');
+        return;
+      }
+
+      if (!hasExecutionWallet) {
+        const errorMessage = 'Connect Phantom before enabling manual or autopilot execution modes.';
+        setError(errorMessage);
+        setAccessModeState('read_only');
+        throw new Error(errorMessage);
+      }
+
+      setError(null);
+      setAccessModeState(mode);
+    },
+    [hasExecutionWallet]
+  );
+
+  const startRestore = useCallback(() => {
+    setAuthState('restoring');
+    setError(null);
+  }, []);
+
+  const finishRestore = useCallback((restoredConnection: boolean) => {
+    setAuthState(restoredConnection ? 'connected' : 'disconnected');
+    if (!restoredConnection) {
+      setAccessModeState('read_only');
+      setConnectionState((current) => (current === 'error' ? current : 'idle'));
+    }
+  }, []);
+
+  const failRestore = useCallback((message?: string | null) => {
+    setAccessModeState('read_only');
+
+    if (message) {
+      setError(message);
+      setAuthState('error');
+      setConnectionState('error');
+      return;
+    }
+
+    setAuthState('disconnected');
+    setConnectionState((current) => (current === 'error' ? current : 'idle'));
+  }, []);
+
   const value = useMemo<WalletContextType>(
     () => ({
       connected: Boolean(resolvedPublicKey),
       connecting: adapter.connecting || connectionState === 'connecting',
       connectionState,
+      authState,
+      accessMode,
       publicKey: resolvedPublicKey,
       source,
       network,
       error,
+      lastWalletError: error,
       isRetrying,
+      isReadOnly: accessMode === 'read_only',
+      canExecuteManually: accessMode === 'wallet_connected_manual' && hasExecutionWallet,
+      canAutopilotSubmit: accessMode === 'wallet_connected_autopilot_active' && hasExecutionWallet,
+      hasExecutionWallet,
       connect,
       disconnect,
       reconnect,
+      setAccessMode,
       setNetwork,
-      clearError: () => setError(null),
+      clearError: () => {
+        setError(null);
+        setAuthState((current) => (current === 'error' && !resolvedPublicKey ? 'disconnected' : current));
+      },
+      startRestore,
+      finishRestore,
+      failRestore,
       signMessage,
       sendTransaction,
       getConnection,
     }),
-    [adapter.connecting, connect, connectionState, disconnect, error, getConnection, isRetrying, network, reconnect, resolvedPublicKey, sendTransaction, setNetwork, signMessage, source]
+    [
+      accessMode,
+      adapter.connecting,
+      authState,
+      connect,
+      connectionState,
+      disconnect,
+      error,
+      failRestore,
+      finishRestore,
+      getConnection,
+      hasExecutionWallet,
+      isRetrying,
+      network,
+      reconnect,
+      resolvedPublicKey,
+      sendTransaction,
+      setAccessMode,
+      setNetwork,
+      signMessage,
+      source,
+      startRestore,
+    ]
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

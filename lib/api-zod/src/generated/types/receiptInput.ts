@@ -5,14 +5,24 @@
  * EdgeGuard v3.0 API - Institutional Quant & Protection Engine
  * OpenAPI spec version: 0.1.0
  */
+import type { ReceiptInputExecutionMode } from './receiptInputExecutionMode';
 import type { ReceiptInputMemoJson } from './receiptInputMemoJson';
+import type { ReceiptInputProposalStatus } from './receiptInputProposalStatus';
+import type { ReceiptInputStatus } from './receiptInputStatus';
 
 export interface ReceiptInput {
   /** @nullable */
   alertId?: number | null;
   fixtureId: number;
-  txSignature: string;
+  /** @nullable */
+  txSignature?: string | null;
   memoJson: ReceiptInputMemoJson;
   cluster: string;
-  status: string;
+  status: ReceiptInputStatus;
+  /** @nullable */
+  proposalStatus?: ReceiptInputProposalStatus;
+  /** @nullable */
+  executionMode?: ReceiptInputExecutionMode;
+  /** @nullable */
+  approvedBy?: string | null;
 }

@@ -34,7 +34,7 @@ export function KillSwitch() {
         </Button>
       </TooltipTrigger>
       <TooltipContent className="font-mono text-xs">
-        {hardLocked ? "Disable Kill Switch (Resume Autopilot)" : "Engage Kill Switch (Hardware Lock Autopilot)"}
+        {hardLocked ? "Disable Kill Switch (Return to read-only controls)" : "Engage Kill Switch (Block all submission authority)"}
       </TooltipContent>
     </Tooltip>
   );

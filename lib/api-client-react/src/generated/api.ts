@@ -39,6 +39,7 @@ import type {
   OddsSnapshot,
   Receipt,
   ReceiptInput,
+  ReceiptLifecycleInput,
   RiskGridItem,
   TxlineActivateInput,
   TxlineActivateResult,
@@ -959,7 +960,7 @@ export const getCreateReceiptUrl = () => {
 }
 
 /**
- * @summary Create a new on-chain receipt (execute or veto)
+ * @summary Create a receipt or proposal row
  */
 export const createReceipt = async (receiptInput: ReceiptInput, options?: RequestInit): Promise<Receipt> => {
 
@@ -1007,7 +1008,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateReceiptMutationError = ErrorType<unknown>
 
     /**
- * @summary Create a new on-chain receipt (execute or veto)
+ * @summary Create a receipt or proposal row
  */
 export const useCreateReceipt = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReceipt>>, TError,{data: BodyType<ReceiptInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1020,6 +1021,77 @@ export const useCreateReceipt = <TError = ErrorType<unknown>,
       return useMutation(getCreateReceiptMutationOptions(options));
     }
 
+export const getUpdateReceiptLifecycleUrl = (receiptId: number,) => {
+
+
+
+
+  return `/api/receipts/${receiptId}/lifecycle`
+}
+
+/**
+ * @summary Update receipt lifecycle state
+ */
+export const updateReceiptLifecycle = async (receiptId: number,
+    receiptLifecycleInput: ReceiptLifecycleInput, options?: RequestInit): Promise<Receipt> => {
+
+  return customFetch<Receipt>(getUpdateReceiptLifecycleUrl(receiptId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(receiptLifecycleInput)
+  }
+);}
+
+
+
+
+export const getUpdateReceiptLifecycleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReceiptLifecycle>>, TError,{receiptId: number;data: BodyType<ReceiptLifecycleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateReceiptLifecycle>>, TError,{receiptId: number;data: BodyType<ReceiptLifecycleInput>}, TContext> => {
+
+const mutationKey = ['updateReceiptLifecycle'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateReceiptLifecycle>>, {receiptId: number;data: BodyType<ReceiptLifecycleInput>}> = (props) => {
+          const {receiptId,data} = props ?? {};
+
+          return  updateReceiptLifecycle(receiptId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateReceiptLifecycleMutationResult = NonNullable<Awaited<ReturnType<typeof updateReceiptLifecycle>>>
+    export type UpdateReceiptLifecycleMutationBody = BodyType<ReceiptLifecycleInput>
+    export type UpdateReceiptLifecycleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update receipt lifecycle state
+ */
+export const useUpdateReceiptLifecycle = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReceiptLifecycle>>, TError,{receiptId: number;data: BodyType<ReceiptLifecycleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateReceiptLifecycle>>,
+        TError,
+        {receiptId: number;data: BodyType<ReceiptLifecycleInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateReceiptLifecycleMutationOptions(options));
+    }
+
 export const getRetryReceiptUrl = (receiptId: number,) => {
 
 
@@ -1029,7 +1101,7 @@ export const getRetryReceiptUrl = (receiptId: number,) => {
 }
 
 /**
- * @summary Retry a failed receipt transaction
+ * @summary Retry a failed or vetoed receipt transaction
  */
 export const retryReceipt = async (receiptId: number, options?: RequestInit): Promise<Receipt> => {
 
@@ -1077,7 +1149,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RetryReceiptMutationError = ErrorType<unknown>
 
     /**
- * @summary Retry a failed receipt transaction
+ * @summary Retry a failed or vetoed receipt transaction
  */
 export const useRetryReceipt = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryReceipt>>, TError,{receiptId: number}, TContext>, request?: SecondParameter<typeof customFetch>}

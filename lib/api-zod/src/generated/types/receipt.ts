@@ -7,7 +7,10 @@
  */
 import type { Alert } from './alert';
 import type { Fixture } from './fixture';
+import type { ReceiptExecutionMode } from './receiptExecutionMode';
 import type { ReceiptMemoJson } from './receiptMemoJson';
+import type { ReceiptProposalStatus } from './receiptProposalStatus';
+import type { ReceiptStatus } from './receiptStatus';
 
 export interface Receipt {
   id: number;
@@ -20,7 +23,23 @@ export interface Receipt {
   memoJson?: ReceiptMemoJson;
   cluster: string;
   ts: number;
-  status: string;
+  status: ReceiptStatus;
+  /** @nullable */
+  proposalStatus?: ReceiptProposalStatus;
+  /** @nullable */
+  approvedBy?: string | null;
+  /** @nullable */
+  approvedAt?: Date | null;
+  /** @nullable */
+  vetoedAt?: Date | null;
+  /** @nullable */
+  submittedAt?: Date | null;
+  /** @nullable */
+  confirmedAt?: Date | null;
+  /** @nullable */
+  failedAt?: Date | null;
+  /** @nullable */
+  executionMode?: ReceiptExecutionMode;
   fixture?: Fixture;
   alert?: Alert;
 }
