@@ -54,6 +54,11 @@ function mapFixtureResponse(fixture: typeof fixturesTable.$inferSelect) {
 
 router.get("/fixtures", async (req, res) => {
   try {
+    if (!db) {
+      req.log.warn("listFixtures called but database not initialized");
+      res.json([]);
+      return;
+    }
     const { status, limit } = req.query;
     let query = db.select().from(fixturesTable).$dynamic();
     if (status) {
@@ -65,7 +70,7 @@ router.get("/fixtures", async (req, res) => {
     return;
   } catch (err) {
     req.log.error({ err }, "listFixtures error");
-    res.status(500).json({ error: "Internal server error" });
+    res.json([]);
     return;
   }
 });
