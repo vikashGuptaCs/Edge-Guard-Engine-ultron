@@ -31,16 +31,20 @@ export const ListFixturesResponseItem = zod.object({
   "awayTeam": zod.string(),
   "kickoffTs": zod.number(),
   "status": zod.string(),
-  "monitoringState": zod.string(),
-  "feedHealth": zod.string(),
   "homeScore": zod.number().nullish(),
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
   "feedLatencyMs": zod.number().nullish(),
-  "lastSuccessfulIngestAt": zod.string().nullish(),
-  "finishedAt": zod.string().nullish(),
-  "archivedAt": zod.string().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
   "lastIngestError": zod.string().nullish()
 })
 export const ListFixturesResponse = zod.array(ListFixturesResponseItem)
@@ -60,16 +64,20 @@ export const GetFixtureResponse = zod.object({
   "awayTeam": zod.string(),
   "kickoffTs": zod.number(),
   "status": zod.string(),
-  "monitoringState": zod.string(),
-  "feedHealth": zod.string(),
   "homeScore": zod.number().nullish(),
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
   "feedLatencyMs": zod.number().nullish(),
-  "lastSuccessfulIngestAt": zod.string().nullish(),
-  "finishedAt": zod.string().nullish(),
-  "archivedAt": zod.string().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
   "lastIngestError": zod.string().nullish()
 })
 
@@ -161,7 +169,17 @@ export const GetFixtureTimelineResponse = zod.object({
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
 }).optional()
 })),
   "scoreEvents": zod.array(zod.object({
@@ -239,7 +257,17 @@ export const ListAlertsResponseItem = zod.object({
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
 }).optional()
 })
 export const ListAlertsResponse = zod.array(ListAlertsResponseItem)
@@ -272,7 +300,17 @@ export const GetAlertResponse = zod.object({
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
 }).optional()
 })
 
@@ -305,7 +343,17 @@ export const ListReceiptsResponseItem = zod.object({
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
 }).optional(),
   "alert": zod.object({
   "id": zod.number(),
@@ -327,7 +375,17 @@ export const ListReceiptsResponseItem = zod.object({
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
 }).optional()
 }).optional()
 })
@@ -366,7 +424,17 @@ export const CreateReceiptResponse = zod.object({
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
 }).optional(),
   "alert": zod.object({
   "id": zod.number(),
@@ -388,7 +456,17 @@ export const CreateReceiptResponse = zod.object({
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
 }).optional()
 }).optional()
 })
@@ -421,7 +499,17 @@ export const RetryReceiptResponse = zod.object({
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
 }).optional(),
   "alert": zod.object({
   "id": zod.number(),
@@ -443,7 +531,17 @@ export const RetryReceiptResponse = zod.object({
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
 }).optional()
 }).optional()
 })
@@ -459,6 +557,12 @@ export const GetDashboardSummaryResponse = zod.object({
   "vetoedToday": zod.number(),
   "avgEdgeScore": zod.number(),
   "feedLatencyMs": zod.number(),
+  "monitoringState": zod.string().nullable(),
+  "feedHealth": zod.string().nullable(),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullable(),
+  "dataFreshnessMs": zod.number().nullable(),
+  "isLive": zod.boolean(),
+  "isFinished": zod.boolean(),
   "activeAgents": zod.number(),
   "alertsPerHour": zod.number()
 })
@@ -477,7 +581,14 @@ export const GetLiveTickerResponseItem = zod.object({
   "edgeScore": zod.number(),
   "action": zod.string(),
   "latencyMs": zod.number(),
-  "topSignal": zod.string().nullish()
+  "topSignal": zod.string().nullish(),
+  "monitoringState": zod.string().nullable(),
+  "feedHealth": zod.string().nullable(),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullable(),
+  "countdownMs": zod.number().nullable(),
+  "isLive": zod.boolean(),
+  "isFinished": zod.boolean(),
+  "dataFreshnessMs": zod.number().nullable()
 })
 export const GetLiveTickerResponse = zod.array(GetLiveTickerResponseItem)
 
@@ -494,7 +605,14 @@ export const GetRiskGridResponseItem = zod.object({
   "volatilityRisk": zod.string(),
   "sentinelStatus": zod.string(),
   "edgeScore": zod.number(),
-  "recommendation": zod.string()
+  "recommendation": zod.string(),
+  "monitoringState": zod.string().nullable(),
+  "feedHealth": zod.string().nullable(),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullable(),
+  "countdownMs": zod.number().nullable(),
+  "isLive": zod.boolean(),
+  "isFinished": zod.boolean(),
+  "dataFreshnessMs": zod.number().nullable()
 })
 export const GetRiskGridResponse = zod.array(GetRiskGridResponseItem)
 
@@ -594,4 +712,5 @@ export const NarrateAlertResponse = zod.object({
   "narration": zod.string(),
   "source": zod.string()
 })
+
 

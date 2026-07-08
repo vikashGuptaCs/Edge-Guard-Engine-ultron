@@ -13,8 +13,6 @@ export interface Fixture {
   awayTeam: string;
   kickoffTs: number;
   status: string;
-  monitoringState: string;
-  feedHealth: string;
   /** @nullable */
   homeScore?: number | null;
   /** @nullable */
@@ -25,12 +23,39 @@ export interface Fixture {
   currentEdgeScore?: number | null;
   /** @nullable */
   feedLatencyMs?: number | null;
+  /**
+     * Current lifecycle monitoring state for the fixture.
+     * @nullable
+     */
+  monitoringState?: string | null;
+  /**
+     * Current provider/feed health for the fixture.
+     * @nullable
+     */
+  feedHealth?: string | null;
+  /**
+     * Timestamp of the last successful ingest affecting this fixture.
+     * @nullable
+     */
+  lastSuccessfulIngestAt?: Date | null;
+  /**
+     * Milliseconds until kickoff for non-live fixtures.
+     * @nullable
+     */
+  countdownMs?: number | null;
+  /** Whether the fixture is currently live. */
+  isLive: boolean;
+  /** Whether the fixture is finished. */
+  isFinished: boolean;
+  /**
+     * Milliseconds since the last successful ingest.
+     * @nullable
+     */
+  dataFreshnessMs?: number | null;
   /** @nullable */
-  lastSuccessfulIngestAt?: string | null;
+  finishedAt?: Date | null;
   /** @nullable */
-  finishedAt?: string | null;
-  /** @nullable */
-  archivedAt?: string | null;
+  archivedAt?: Date | null;
   /** @nullable */
   lastIngestError?: string | null;
 }

@@ -321,7 +321,7 @@ async function upsertFixtureRecord(f: any): Promise<void> {
         monitoringState: nextMonitoringState,
         feedHealth: "unknown",
         lastFixtureSyncAt: now,
-        lastSuccessfulIngestAt: now,
+        lastSuccessfulIngestAt: null,
         lastIngestError: null,
         firstLiveAt: transitionFields.firstLiveAt,
         finishedAt: transitionFields.finishedAt,
@@ -336,8 +336,6 @@ async function upsertFixtureRecord(f: any): Promise<void> {
           status: providerStatus,
           monitoringState: nextMonitoringState,
           lastFixtureSyncAt: now,
-          lastSuccessfulIngestAt: now,
-          lastIngestError: null,
           firstLiveAt: transitionFields.firstLiveAt,
           finishedAt: transitionFields.finishedAt,
         },
@@ -394,7 +392,10 @@ async function pollFixture(fixtureId: number): Promise<void> {
       case "discovered": {
         await db
           .update(fixturesTable)
-          .set({ lastSuccessfulIngestAt: now })
+          .set({
+            lastSuccessfulIngestAt: now,
+            lastIngestError: null,
+          })
           .where(eq(fixturesTable.fixtureId, fixtureId));
         return;
       }
@@ -644,6 +645,10 @@ export function startTxlinePoller(): void {
   if (!process.env.TXLINE_API_TOKEN) {
     logger.warn("TXLINE_API_TOKEN not set — TxLINE DVR poller skipped");
     pollerRuntimeState.active = false;
+    pollerRuntimeState.startedAt = null;
+    pollerRuntimeState.lastCycleStartedAt = null;
+    pollerRuntimeState.lastCycleFinishedAt = null;
+    pollerRuntimeState.lastCycleSucceeded = null;
     pollerRuntimeState.lastCycleError = "TXLINE_API_TOKEN not set";
     return;
   }
