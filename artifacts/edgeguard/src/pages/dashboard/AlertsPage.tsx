@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useListAlerts, useNarrateAlert } from "@workspace/api-client-react";
+import { getListAlertsQueryKey, useListAlerts, useNarrateAlert } from "@workspace/api-client-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,12 @@ import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export default function AlertsPage() {
-  const { data: alerts = [], isLoading } = useListAlerts({ limit: 100 }, {
-    query: { refetchInterval: 10000 }
+  const alertParams = { limit: 100 };
+  const { data: alerts = [], isLoading } = useListAlerts(alertParams, {
+    query: {
+      refetchInterval: 10000,
+      queryKey: getListAlertsQueryKey(alertParams),
+    },
   });
   
   const narrateMutation = useNarrateAlert();

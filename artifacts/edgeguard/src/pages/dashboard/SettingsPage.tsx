@@ -15,7 +15,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useGetTxlineStatus, useGetTxlineFixtures } from "@workspace/api-client-react";
+import {
+  getGetTxlineFixturesQueryKey,
+  getGetTxlineStatusQueryKey,
+  useGetTxlineStatus,
+  useGetTxlineFixtures,
+} from "@workspace/api-client-react";
 import { useTxlineSubscribe } from "@/hooks/use-txline-subscribe";
 
 const STEP_LABELS: Record<string, string> = {
@@ -34,13 +39,17 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
 
   const { data: txlineStatus, isLoading: statusLoading, refetch: refetchStatus } = useGetTxlineStatus({
-    query: { refetchInterval: 30_000 },
+    query: {
+      refetchInterval: 30_000,
+      queryKey: getGetTxlineStatusQueryKey(),
+    },
   });
 
   const { data: txlineFixtures, isLoading: fixturesLoading } = useGetTxlineFixtures({
     query: {
       enabled: txlineStatus?.connected === true,
       refetchInterval: 60_000,
+      queryKey: getGetTxlineFixturesQueryKey(),
     },
   });
 

@@ -11,9 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 export function ReceiptTable() {
   const receiptParams = { limit: 50 };
   const { data: receipts = [], isLoading } = useListReceipts(receiptParams, {
-    query: { refetchInterval: 10000 }
-    ,
-    queryKey: getListReceiptsQueryKey(receiptParams)
+    query: {
+      refetchInterval: 10000,
+      queryKey: getListReceiptsQueryKey(receiptParams),
+    },
   });
   
   const retryMutation = useRetryReceipt();

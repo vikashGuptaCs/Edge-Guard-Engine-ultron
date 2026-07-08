@@ -1,5 +1,5 @@
 import React from "react";
-import { useListFixtures } from "@workspace/api-client-react";
+import { getListFixturesQueryKey, useListFixtures } from "@workspace/api-client-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,13 @@ import { Link } from "wouter";
 
 export default function MatchesPage() {
   const [search, setSearch] = React.useState("");
+  const fixtureParams = {};
   
-  const { data: fixtures = [], isLoading } = useListFixtures({}, {
-    query: { refetchInterval: 10000 }
+  const { data: fixtures = [], isLoading } = useListFixtures(fixtureParams, {
+    query: {
+      refetchInterval: 10000,
+      queryKey: getListFixturesQueryKey(fixtureParams),
+    },
   });
 
   const filteredFixtures = fixtures.filter(f => 

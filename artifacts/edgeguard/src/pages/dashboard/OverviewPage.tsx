@@ -54,7 +54,7 @@ function isFinishedFixture(fixture: DashboardFixture) {
 }
 
 function isFeedDegraded(fixture: DashboardFixture) {
-  return ["degraded", "error", "empty"].includes(fixture.feedHealth);
+  return ["degraded", "error", "empty"].includes(fixture.feedHealth ?? "");
 }
 
 function formatFreshnessLabel(lastSuccessfulIngestAt?: string | null) {
@@ -87,7 +87,7 @@ function getStateBadgeClassName(state: string) {
   }
 }
 
-function getFeedBadgeClassName(feedHealth: string) {
+function getFeedBadgeClassName(feedHealth?: string | null) {
   switch (feedHealth) {
     case "healthy":
       return "border-green-500/40 text-green-400 bg-green-500/10";
@@ -161,7 +161,7 @@ function FixtureSummaryCard({
               {monitoringState.replace(/_/g, " ")}
             </Badge>
             <Badge variant="outline" className={`text-[10px] uppercase ${getFeedBadgeClassName(fixture.feedHealth)}`}>
-              {fixture.feedHealth}
+              {fixture.feedHealth ?? "unknown"}
             </Badge>
           </div>
         </div>
