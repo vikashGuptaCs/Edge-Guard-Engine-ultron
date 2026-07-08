@@ -156,8 +156,11 @@ function InnerWalletProvider({
     }
 
     if (!manualPublicKey) {
-      setSource(null);
-      setAccessModeState('read_only');
+      // Don't clear source while restoring - let the restore process complete
+      if (authState !== 'restoring') {
+        setSource(null);
+        setAccessModeState('read_only');
+      }
       setConnectionState((current) => (current === 'error' || current === 'disconnecting' ? current : 'idle'));
       setAuthState((current) => {
         if (current === 'restoring' || current === 'error') {
@@ -167,7 +170,7 @@ function InnerWalletProvider({
         return 'disconnected';
       });
     }
-  }, [adapter.connected, adapter.connecting, adapter.publicKey, adapter.wallet, manualPublicKey]);
+  }, [adapter.connected, adapter.connecting, adapter.publicKey, adapter.wallet, manualPublicKey, authState]);
 
   // Clear retry timeout on unmount
   useEffect(() => {
