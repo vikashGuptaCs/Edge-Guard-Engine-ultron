@@ -243,6 +243,7 @@ async function upsertFixtureRecord(f: any): Promise<void> {
         status: providerStatus,
         monitoringState,
         feedHealth: "unknown",
+        lastFixtureSyncAt: now,
         lastSuccessfulIngestAt: now,
         lastIngestError: null,
       })
@@ -255,6 +256,7 @@ async function upsertFixtureRecord(f: any): Promise<void> {
           kickoffTs,
           status: providerStatus,
           monitoringState,
+          lastFixtureSyncAt: now,
           lastSuccessfulIngestAt: now,
           lastIngestError: null,
         },
@@ -463,6 +465,10 @@ async function pollFixture(fixtureId: number): Promise<void> {
       feedEmptyCount: nextEmptyCount,
       lastSuccessfulIngestAt: now,
       lastIngestError: null,
+      lastOddsSyncAt: odds.length > 0 ? now : fixture.lastOddsSyncAt,
+      lastScoresSyncAt: scores.length > 0 ? now : fixture.lastScoresSyncAt,
+      lastOddsCursor: fixture.lastOddsCursor,
+      lastScoresCursor: fixture.lastScoresCursor,
       firstLiveAt:
         fixture.firstLiveAt ?? (effectiveStatus === "live" ? now : fixture.firstLiveAt),
       finishedAt:
