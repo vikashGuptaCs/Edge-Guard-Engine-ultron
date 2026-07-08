@@ -26,7 +26,8 @@ router.post("/narrate", async (req, res) => {
   try {
     const parsed = NarrateAlertBody.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid request body" });
+      res.status(400).json({ error: "Invalid request body" });
+      return;
     }
     const { alertId, fixtureId, edgeScore, action, context } = parsed.data;
 
@@ -36,7 +37,8 @@ router.post("/narrate", async (req, res) => {
 
     if (now - lastCall < 60000) {
       const template = getTemplate(action, edgeScore, context);
-      return res.json({ narration: template, source: "template" });
+      res.json({ narration: template, source: "template" });
+      return;
     }
 
     RATE_LIMIT_MAP.set(clientId, now);
@@ -45,9 +47,11 @@ router.post("/narrate", async (req, res) => {
 
     req.log.info({ alertId, fixtureId, edgeScore, action }, "narration generated");
     res.json({ narration: template, source: "template" });
+    return;
   } catch (err) {
     req.log.error({ err }, "narrateAlert error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 

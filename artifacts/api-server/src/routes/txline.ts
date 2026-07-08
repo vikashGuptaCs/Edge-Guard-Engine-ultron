@@ -16,9 +16,11 @@ router.get("/txline/status", async (req, res) => {
       tokenConfigured: !!process.env.TXLINE_API_TOKEN,
       error: result.error ?? null,
     });
+    return;
   } catch (err) {
     req.log.error({ err }, "txline status error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 
@@ -46,40 +48,55 @@ router.get("/txline/fixtures", async (req, res) => {
       };
     });
     res.json(fixtures);
+    return;
   } catch (err) {
     req.log.error({ err }, "txline fixtures error");
     res.status(502).json({ error: "TxLINE feed unavailable", details: err instanceof Error ? err.message : String(err) });
+    return;
   }
 });
 
 router.get("/txline/odds/:fixtureId", async (req, res) => {
   try {
     const fixtureId = parseInt(req.params.fixtureId);
-    if (isNaN(fixtureId)) return res.status(400).json({ error: "Invalid fixtureId" });
+    if (isNaN(fixtureId)) {
+      res.status(400).json({ error: "Invalid fixtureId" });
+      return;
+    }
     const raw = await getTxlineOdds(fixtureId);
     res.json(Array.isArray(raw) ? raw : []);
+    return;
   } catch (err) {
     req.log.error({ err }, "txline odds error");
     res.status(502).json({ error: "TxLINE feed unavailable", details: err instanceof Error ? err.message : String(err) });
+    return;
   }
 });
 
 router.get("/txline/scores/:fixtureId", async (req, res) => {
   try {
     const fixtureId = parseInt(req.params.fixtureId);
-    if (isNaN(fixtureId)) return res.status(400).json({ error: "Invalid fixtureId" });
+    if (isNaN(fixtureId)) {
+      res.status(400).json({ error: "Invalid fixtureId" });
+      return;
+    }
     const raw = await getTxlineScores(fixtureId);
     res.json(Array.isArray(raw) ? raw : []);
+    return;
   } catch (err) {
     req.log.error({ err }, "txline scores error");
     res.status(502).json({ error: "TxLINE feed unavailable", details: err instanceof Error ? err.message : String(err) });
+    return;
   }
 });
 
 router.get("/txline/events/:fixtureId", async (req, res) => {
   try {
     const fixtureId = parseInt(req.params.fixtureId);
-    if (isNaN(fixtureId)) return res.status(400).json({ error: "Invalid fixtureId" });
+    if (isNaN(fixtureId)) {
+      res.status(400).json({ error: "Invalid fixtureId" });
+      return;
+    }
 
     const category = req.query.category as string | undefined;
     const limit = Math.min(parseInt((req.query.limit as string) ?? "200") || 200, 500);
@@ -96,9 +113,11 @@ router.get("/txline/events/:fixtureId", async (req, res) => {
       .limit(limit);
 
     res.json(rows);
+    return;
   } catch (err) {
     req.log.error({ err }, "txline events error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 
@@ -106,9 +125,11 @@ router.get("/txline/guest-jwt", async (req, res) => {
   try {
     const jwt = await getGuestJwt();
     res.json({ jwt });
+    return;
   } catch (err) {
     req.log.error({ err }, "txline guest jwt error");
     res.status(502).json({ error: "Could not get TxLINE guest JWT" });
+    return;
   }
 });
 
@@ -122,7 +143,8 @@ router.post("/txline/activate", async (req, res) => {
     };
 
     if (!txSig || !walletSignature || !jwt) {
-      return res.status(400).json({ error: "txSig, walletSignature, and jwt are required" });
+      res.status(400).json({ error: "txSig, walletSignature, and jwt are required" });
+      return;
     }
 
     const TXLINE_BASE = "https://txline-dev.txodds.com/api";
@@ -141,19 +163,23 @@ router.post("/txline/activate", async (req, res) => {
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
       req.log.error({ status: response.status, errText }, "TxLINE activate failed");
-      return res.status(502).json({ error: `TxLINE activation failed: ${response.status}`, details: errText.slice(0, 300) });
+      res.status(502).json({ error: `TxLINE activation failed: ${response.status}`, details: errText.slice(0, 300) });
+      return;
     }
 
     const data = (await response.json()) as { apiToken?: string; token?: string };
     const token = data.apiToken ?? data.token;
     if (!token) {
-      return res.status(502).json({ error: "TxLINE activation did not return a token", details: JSON.stringify(data) });
+      res.status(502).json({ error: "TxLINE activation did not return a token", details: JSON.stringify(data) });
+      return;
     }
 
     res.json({ apiToken: token, message: "TxLINE subscription activated successfully" });
+    return;
   } catch (err) {
     req.log.error({ err }, "txline activate error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 

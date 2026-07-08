@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useListFixtures } from '@workspace/api-client-react';
+import { getListFixturesQueryKey, useListFixtures } from '@workspace/api-client-react';
 import { useRiskAgents, WorkerStatus, FixtureRiskState, WorkerSignal } from '@/hooks/use-risk-agents';
 
 interface RiskAgentContextType {
@@ -20,10 +20,16 @@ const RiskAgentContext = createContext<RiskAgentContextType>({
 
 export function RiskAgentProvider({ children }: { children: React.ReactNode }) {
   const [monitoredCount, setMonitoredCount] = useState(0);
+  const liveFixtureParams = { status: 'live' };
 
   const { data: fixtures = [] } = useListFixtures(
-    { status: 'live' },
-    { query: { refetchInterval: 30_000 } },
+    liveFixtureParams,
+    {
+      query: {
+        queryKey: getListFixturesQueryKey(liveFixtureParams),
+        refetchInterval: 30_000,
+      },
+    },
   );
 
   const { status, fixtureRisks, getFixtureRisk, updateFixtures } = useRiskAgents(2500);

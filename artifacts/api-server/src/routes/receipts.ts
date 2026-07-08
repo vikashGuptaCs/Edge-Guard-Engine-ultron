@@ -40,9 +40,11 @@ router.get("/receipts", async (req, res) => {
         kickoffTs: fixtureMap[r.fixtureId].kickoffTs,
       } : null,
     })));
+    return;
   } catch (err) {
     req.log.error({ err }, "listReceipts error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 
@@ -50,7 +52,8 @@ router.post("/receipts", async (req, res) => {
   try {
     const parsed = CreateReceiptBody.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid request body" });
+      res.status(400).json({ error: "Invalid request body" });
+      return;
     }
     const body = parsed.data;
     const [receipt] = await db.insert(receiptsTable).values({
@@ -72,9 +75,11 @@ router.post("/receipts", async (req, res) => {
       ts: receipt.ts,
       status: receipt.status,
     });
+    return;
   } catch (err) {
     req.log.error({ err }, "createReceipt error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 
@@ -83,7 +88,8 @@ router.post("/receipts/:receiptId/retry", async (req, res) => {
     const receiptId = parseInt(req.params.receiptId);
     const [receipt] = await db.select().from(receiptsTable).where(eq(receiptsTable.id, receiptId));
     if (!receipt) {
-      return res.status(404).json({ error: "Receipt not found" });
+      res.status(404).json({ error: "Receipt not found" });
+      return;
     }
     const [updated] = await db
       .update(receiptsTable)
@@ -100,9 +106,11 @@ router.post("/receipts/:receiptId/retry", async (req, res) => {
       ts: updated.ts,
       status: updated.status,
     });
+    return;
   } catch (err) {
     req.log.error({ err }, "retryReceipt error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 

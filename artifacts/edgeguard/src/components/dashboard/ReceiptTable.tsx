@@ -1,5 +1,5 @@
 import React from "react";
-import { useListReceipts, useRetryReceipt } from "@workspace/api-client-react";
+import { getListReceiptsQueryKey, useListReceipts, useRetryReceipt } from "@workspace/api-client-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,11 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 export function ReceiptTable() {
-  const { data: receipts = [], isLoading } = useListReceipts({ limit: 50 }, {
+  const receiptParams = { limit: 50 };
+  const { data: receipts = [], isLoading } = useListReceipts(receiptParams, {
     query: { refetchInterval: 10000 }
+    ,
+    queryKey: getListReceiptsQueryKey(receiptParams)
   });
   
   const retryMutation = useRetryReceipt();
@@ -81,7 +84,9 @@ export function ReceiptTable() {
                   {format(new Date(receipt.ts), "HH:mm:ss.SSS")}
                 </TableCell>
                 <TableCell className="font-medium">
-                  {receipt.fixture ? `${receipt.fixture.homeTeam} vs ${receipt.fixture.awayTeam}` : `Fixture #${receipt.fixtureId}`}
+                  {receipt.fixture
+                    ? `${receipt.fixture.homeTeam} vs ${receipt.fixture.awayTeam}`
+                    : `Fixture #${receipt.alert?.fixtureId ?? "?"}`}
                 </TableCell>
                 <TableCell>
                   <Badge 

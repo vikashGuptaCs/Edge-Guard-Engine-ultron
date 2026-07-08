@@ -20,6 +20,7 @@ export default function AuthPage() {
       const timer = setTimeout(() => setLocation("/dashboard"), 800);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [connected, publicKey, setLocation]);
 
   // Update error state from wallet

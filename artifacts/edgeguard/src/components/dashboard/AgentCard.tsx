@@ -51,7 +51,9 @@ export function AgentCard({ agent, workerSignal }: AgentCardProps) {
         </CardTitle>
         <div className="flex items-center gap-2">
           {workerSignal && (
-            <Zap className="w-3 h-3 text-cyan-400" title="Worker-computed" />
+            <span title="Worker-computed">
+              <Zap className="w-3 h-3 text-cyan-400" />
+            </span>
           )}
           <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
             {agent.status}

@@ -19,7 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { KillSwitch } from "../dashboard/KillSwitch";
-import { useHealthCheck } from "@workspace/api-client-react";
+import { getHealthCheckQueryKey, useHealthCheck } from "@workspace/api-client-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +38,10 @@ export function TopBar() {
   const [isNetworkMenuOpen, setIsNetworkMenuOpen] = useState(false);
 
   const { data: health } = useHealthCheck({
-    query: { refetchInterval: 30000 },
+    query: {
+      queryKey: getHealthCheckQueryKey(),
+      refetchInterval: 30000,
+    },
   });
 
   const truncateAddress = (addr: string) =>

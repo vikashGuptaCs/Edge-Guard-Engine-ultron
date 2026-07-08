@@ -1,5 +1,10 @@
 import React, { useMemo } from "react";
-import { useGetAgentHeartbeats, useListAgentSignals } from "@workspace/api-client-react";
+import {
+  getGetAgentHeartbeatsQueryKey,
+  getListAgentSignalsQueryKey,
+  useGetAgentHeartbeats,
+  useListAgentSignals,
+} from "@workspace/api-client-react";
 import { AgentCard } from "@/components/dashboard/AgentCard";
 import { WorkerStatusBadge } from "@/components/dashboard/WorkerStatusBadge";
 import { useRiskAgentContext } from "@/contexts/RiskAgentContext";
@@ -20,11 +25,18 @@ const signalColor = (sig: string) => {
 
 export default function AgentsPage() {
   const { data: heartbeats = [], isLoading } = useGetAgentHeartbeats({
-    query: { refetchInterval: 5000 }
+    query: {
+      queryKey: getGetAgentHeartbeatsQueryKey(),
+      refetchInterval: 5000,
+    }
   });
 
-  const { data: serverSignals = [], isLoading: isLoadingSignals } = useListAgentSignals({ limit: 10 }, {
-    query: { refetchInterval: 5000 }
+  const signalParams = { limit: 10 };
+  const { data: serverSignals = [], isLoading: isLoadingSignals } = useListAgentSignals(signalParams, {
+    query: {
+      queryKey: getListAgentSignalsQueryKey(signalParams),
+      refetchInterval: 5000,
+    }
   });
 
   const { workerStatus, allFixtureRisks, getAgentSignal } = useRiskAgentContext();

@@ -1,11 +1,14 @@
 import React from "react";
-import { useGetDashboardSummary } from "@workspace/api-client-react";
+import { getGetDashboardSummaryQueryKey, useGetDashboardSummary } from "@workspace/api-client-react";
 import { Activity, Clock, Cpu, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function StatsBar() {
   const { data: summary, isLoading } = useGetDashboardSummary({
-    query: { refetchInterval: 5000 }
+    query: {
+      queryKey: getGetDashboardSummaryQueryKey(),
+      refetchInterval: 5000,
+    }
   });
 
   return (

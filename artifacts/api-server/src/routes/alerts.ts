@@ -204,21 +204,31 @@ function enrichAlert(args: {
   if (!isHealthAlert && isAlertSuppressedByFeedHealth({ feedHealth })) {
     suppressed = true;
     suppressionReason = "feed_error";
-    stats?.suppressedFeedError++;
+    if (stats) {
+      stats.suppressedFeedError += 1;
+    }
   } else if (!isHealthAlert && !isPrematch && !isLive) {
     suppressed = true;
     suppressionReason = "fixture_inactive";
-    stats?.ignoredInactiveFixture++;
+    if (stats) {
+      stats.ignoredInactiveFixture += 1;
+    }
   }
 
   if (isPrematch) {
-    stats?.interpretedPrematch++;
+    if (stats) {
+      stats.interpretedPrematch += 1;
+    }
   }
 
   if (isLive) {
-    stats?.interpretedLive++;
+    if (stats) {
+      stats.interpretedLive += 1;
+    }
     if (recentSignals.length === 0) {
-      stats?.liveWithoutFreshSignals++;
+      if (stats) {
+        stats.liveWithoutFreshSignals += 1;
+      }
     }
   }
 
@@ -229,7 +239,9 @@ function enrichAlert(args: {
 
   if (!suppressed && shouldDegradeAlertConfidence({ feedHealth })) {
     if (confidenceBand !== "degraded") {
-      stats?.downgradedFeedHealth++;
+      if (stats) {
+        stats.downgradedFeedHealth += 1;
+      }
     }
     confidenceBand = "degraded";
   }
@@ -361,7 +373,8 @@ router.get("/alerts/:alertId", async (req, res) => {
     const alertId = parseInt(req.params.alertId, 10);
     const [alert] = await db.select().from(alertsTable).where(eq(alertsTable.id, alertId));
     if (!alert) {
-      return res.status(404).json({ error: "Alert not found" });
+      res.status(404).json({ error: "Alert not found" });
+      return;
     }
     const { fixtureMap, freshSignalMap } = await loadAlertContext([alert]);
     const stats = createMonitoringStats();
@@ -374,9 +387,11 @@ router.get("/alerts/:alertId", async (req, res) => {
 
     logAlertMonitoringSummary(req, "/alerts/:alertId", stats, 1, 1);
     res.json(response);
+    return;
   } catch (err) {
     req.log.error({ err }, "getAlert error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 
