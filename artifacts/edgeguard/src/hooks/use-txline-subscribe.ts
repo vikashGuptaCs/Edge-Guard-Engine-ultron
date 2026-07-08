@@ -18,7 +18,7 @@ const DURATION_WEEKS = 4;
 export type SubscribeStep = "idle" | "getting-jwt" | "subscribing" | "signing" | "activating" | "done" | "error";
 
 export function useTxlineSubscribe() {
-  const { connected, publicKey, signMessage, sendTransaction, getConnection } = useWallet();
+  const { connected, publicKey, hasExecutionWallet, isReadOnly, signMessage, sendTransaction, getConnection } = useWallet();
   const [step, setStep] = useState<SubscribeStep>("idle");
   const [error, setError] = useState<string | null>(null);
   const [newToken, setNewToken] = useState<string | null>(null);
@@ -28,6 +28,11 @@ export function useTxlineSubscribe() {
   const subscribe = useCallback(async () => {
     if (!connected || !publicKey) {
       setError("Wallet not connected");
+      return;
+    }
+
+    if (!hasExecutionWallet || isReadOnly) {
+      setError("Switch to Manual or an approved execution mode with Phantom before sending on-chain transactions.");
       return;
     }
 
@@ -99,7 +104,7 @@ export function useTxlineSubscribe() {
       setError(msg);
       setStep("error");
     }
-  }, [connected, publicKey, signMessage, sendTransaction, getConnection, activateMutation]);
+  }, [connected, publicKey, hasExecutionWallet, isReadOnly, signMessage, sendTransaction, getConnection, activateMutation]);
 
   const reset = useCallback(() => {
     setStep("idle");

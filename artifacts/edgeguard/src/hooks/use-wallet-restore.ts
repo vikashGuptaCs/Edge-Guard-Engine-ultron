@@ -10,7 +10,7 @@ const LAST_PUBLIC_KEY_KEY = 'edgeguard.wallet.publickey';
  * Will only attempt restore if user was previously connected
  */
 export function useWalletRestore() {
-  const { connected, connect, connectionState } = useWallet();
+  const { connected, connect, authState, startRestore, finishRestore, failRestore } = useWallet();
   const restoreAttemptedRef = useRef(false);
 
   useEffect(() => {
@@ -22,11 +22,14 @@ export function useWalletRestore() {
     restoreAttemptedRef.current = true;
 
     const attemptRestore = async () => {
+      startRestore();
+
       try {
         if (typeof window === 'undefined') return;
 
         const storedSource = window.localStorage.getItem(LAST_WALLET_SOURCE_KEY);
         if (!storedSource || !['phantom', 'manual'].includes(storedSource)) {
+          finishRestore(false);
           return;
         }
 
@@ -34,24 +37,33 @@ export function useWalletRestore() {
           const storedKey = window.localStorage.getItem(LAST_PUBLIC_KEY_KEY);
           if (storedKey) {
             await connect('manual', storedKey);
+            finishRestore(true);
+            return;
           }
-        } else if (storedSource === 'phantom') {
+          finishRestore(false);
+          return;
+        }
+
+        if (storedSource === 'phantom') {
           // Only auto-restore phantom if it was previously connected
           await connect('phantom');
+          finishRestore(true);
+          return;
         }
       } catch (err) {
         // Silently fail - user can reconnect manually
         console.debug('Wallet restore attempt failed:', err);
+        failRestore();
       }
     };
 
     // Small delay to allow providers to initialize
     const timer = setTimeout(attemptRestore, 100);
     return () => clearTimeout(timer);
-  }, [connected, connect, connectionState]);
+  }, [connected, connect, failRestore, finishRestore, startRestore]);
 
   return {
-    isAttemptingRestore: !restoreAttemptedRef.current && connectionState === 'connecting',
+    isAttemptingRestore: authState === 'restoring',
     restoreAttempted: restoreAttemptedRef.current,
   };
 }

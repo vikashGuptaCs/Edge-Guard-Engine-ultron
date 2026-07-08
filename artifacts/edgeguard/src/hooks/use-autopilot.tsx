@@ -1,37 +1,143 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-interface AutopilotState {
-  enabled: boolean;
-  threshold: number;
-  hardLocked: boolean;
+export type AutopilotExecutionState =
+  | 'disabled'
+  | 'monitoring_only'
+  | 'proposal_pending_approval'
+  | 'approved_for_submission'
+  | 'submitted';
+
+export interface AutopilotProposal {
+  id: string;
+  receiptId?: number | null;
+  fixtureId: number;
+  actionSummary: string;
+  reason: string;
+  confidence: number;
+  riskContext: string;
+  createdAt: string;
 }
 
-interface AutopilotContextType extends AutopilotState {
-  setEnabled: (enabled: boolean) => void;
+interface AutopilotContextType {
+  autopilotEnabled: boolean;
+  autopilotExecutionState: AutopilotExecutionState;
+  pendingProposal: AutopilotProposal | null;
+  threshold: number;
+  hardLocked: boolean;
+  setAutopilotEnabled: (enabled: boolean) => void;
+  setAutopilotExecutionState: (state: AutopilotExecutionState) => void;
   setThreshold: (threshold: number) => void;
   setHardLocked: (locked: boolean) => void;
+  requestAutopilotApproval: (proposal: AutopilotProposal) => void;
+  approveAutopilotProposal: (id: string) => void;
+  rejectAutopilotProposal: (id: string) => void;
+  markProposalSubmitted: (id: string) => void;
+  clearPendingProposal: () => void;
 }
 
 const AutopilotContext = createContext<AutopilotContextType | undefined>(undefined);
 
 export function AutopilotProvider({ children }: { children: React.ReactNode }) {
-  const [enabled, setEnabled] = useState(false);
+  const [autopilotEnabled, setAutopilotEnabledState] = useState(false);
+  const [autopilotExecutionState, setAutopilotExecutionStateState] = useState<AutopilotExecutionState>('disabled');
+  const [pendingProposal, setPendingProposal] = useState<AutopilotProposal | null>(null);
   const [threshold, setThreshold] = useState(80);
   const [hardLocked, setHardLocked] = useState(false);
 
+  const setAutopilotEnabled = useCallback((enabled: boolean) => {
+    setAutopilotEnabledState(enabled);
+    setAutopilotExecutionStateState(enabled ? 'monitoring_only' : 'disabled');
+
+    if (!enabled) {
+      setPendingProposal(null);
+    }
+  }, []);
+
+  const setAutopilotExecutionState = useCallback((state: AutopilotExecutionState) => {
+    setAutopilotExecutionStateState(state);
+    setAutopilotEnabledState(state !== 'disabled');
+
+    if (state === 'disabled' || state === 'monitoring_only') {
+      setPendingProposal((current) => (state === 'disabled' ? null : current));
+    }
+  }, []);
+
+  const setHardLockedState = useCallback((locked: boolean) => {
+    setHardLocked(locked);
+
+    if (locked) {
+      setAutopilotEnabledState(false);
+      setAutopilotExecutionStateState('disabled');
+    } else if (pendingProposal) {
+      setAutopilotEnabledState(true);
+      setAutopilotExecutionStateState('proposal_pending_approval');
+    }
+  }, [pendingProposal]);
+
+  const requestAutopilotApproval = useCallback((proposal: AutopilotProposal) => {
+    setPendingProposal(proposal);
+    setAutopilotEnabledState(true);
+    setAutopilotExecutionStateState('proposal_pending_approval');
+  }, []);
+
+  const approveAutopilotProposal = useCallback((id: string) => {
+    setPendingProposal((current) => (current?.id === id ? current : current));
+    setAutopilotEnabledState(true);
+    setAutopilotExecutionStateState('approved_for_submission');
+  }, []);
+
+  const rejectAutopilotProposal = useCallback((id: string) => {
+    setPendingProposal((current) => (current?.id === id ? null : current));
+    setAutopilotEnabledState(true);
+    setAutopilotExecutionStateState('monitoring_only');
+  }, []);
+
+  const markProposalSubmitted = useCallback((id: string) => {
+    setPendingProposal((current) => (current?.id === id ? current : current));
+    setAutopilotEnabledState(true);
+    setAutopilotExecutionStateState('submitted');
+  }, []);
+
+  const clearPendingProposal = useCallback(() => {
+    setPendingProposal(null);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      autopilotEnabled,
+      autopilotExecutionState,
+      pendingProposal,
+      threshold,
+      hardLocked,
+      setAutopilotEnabled,
+      setAutopilotExecutionState,
+      setThreshold,
+      setHardLocked: setHardLockedState,
+      requestAutopilotApproval,
+      approveAutopilotProposal,
+      rejectAutopilotProposal,
+      markProposalSubmitted,
+      clearPendingProposal,
+    }),
+    [
+      autopilotEnabled,
+      autopilotExecutionState,
+      clearPendingProposal,
+      hardLocked,
+      markProposalSubmitted,
+      pendingProposal,
+      rejectAutopilotProposal,
+      requestAutopilotApproval,
+      setAutopilotEnabled,
+      setAutopilotExecutionState,
+      setHardLockedState,
+      threshold,
+      approveAutopilotProposal,
+    ]
+  );
+
   return (
-    <AutopilotContext.Provider
-      value={{
-        enabled,
-        threshold,
-        hardLocked,
-        setEnabled,
-        setThreshold,
-        setHardLocked,
-      }}
-    >
-      {children}
-    </AutopilotContext.Provider>
+    <AutopilotContext.Provider value={value}>{children}</AutopilotContext.Provider>
   );
 }
 

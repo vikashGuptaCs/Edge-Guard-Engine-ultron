@@ -331,7 +331,15 @@ export const ListReceiptsResponseItem = zod.object({
   "memoJson": zod.record(zod.string(), zod.unknown()).optional(),
   "cluster": zod.string(),
   "ts": zod.number(),
-  "status": zod.string(),
+  "status": zod.enum(['proposed', 'approved', 'submitted', 'confirmed', 'failed', 'vetoed']),
+  "proposalStatus": zod.union([zod.literal('proposed'),zod.literal('approved'),zod.literal('vetoed'),zod.literal(null)]).nullish(),
+  "approvedBy": zod.string().nullish(),
+  "approvedAt": zod.coerce.date().nullish(),
+  "vetoedAt": zod.coerce.date().nullish(),
+  "submittedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
+  "failedAt": zod.coerce.date().nullish(),
+  "executionMode": zod.union([zod.literal('manual'),zod.literal('autopilot'),zod.literal(null)]).nullish(),
   "fixture": zod.object({
   "fixtureId": zod.number(),
   "competition": zod.string(),
@@ -393,15 +401,18 @@ export const ListReceiptsResponse = zod.array(ListReceiptsResponseItem)
 
 
 /**
- * @summary Create a new on-chain receipt (execute or veto)
+ * @summary Create a receipt or proposal row
  */
 export const CreateReceiptBody = zod.object({
   "alertId": zod.number().nullish(),
   "fixtureId": zod.number(),
-  "txSignature": zod.string(),
+  "txSignature": zod.string().nullish(),
   "memoJson": zod.record(zod.string(), zod.unknown()),
   "cluster": zod.string(),
-  "status": zod.string()
+  "status": zod.enum(['proposed', 'approved', 'submitted', 'confirmed', 'failed', 'vetoed']),
+  "proposalStatus": zod.union([zod.literal('proposed'),zod.literal('approved'),zod.literal('vetoed'),zod.literal(null)]).nullish(),
+  "executionMode": zod.union([zod.literal('manual'),zod.literal('autopilot'),zod.literal(null)]).nullish(),
+  "approvedBy": zod.string().nullish()
 })
 
 export const CreateReceiptResponse = zod.object({
@@ -412,7 +423,15 @@ export const CreateReceiptResponse = zod.object({
   "memoJson": zod.record(zod.string(), zod.unknown()).optional(),
   "cluster": zod.string(),
   "ts": zod.number(),
-  "status": zod.string(),
+  "status": zod.enum(['proposed', 'approved', 'submitted', 'confirmed', 'failed', 'vetoed']),
+  "proposalStatus": zod.union([zod.literal('proposed'),zod.literal('approved'),zod.literal('vetoed'),zod.literal(null)]).nullish(),
+  "approvedBy": zod.string().nullish(),
+  "approvedAt": zod.coerce.date().nullish(),
+  "vetoedAt": zod.coerce.date().nullish(),
+  "submittedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
+  "failedAt": zod.coerce.date().nullish(),
+  "executionMode": zod.union([zod.literal('manual'),zod.literal('autopilot'),zod.literal(null)]).nullish(),
   "fixture": zod.object({
   "fixtureId": zod.number(),
   "competition": zod.string(),
@@ -473,7 +492,96 @@ export const CreateReceiptResponse = zod.object({
 
 
 /**
- * @summary Retry a failed receipt transaction
+ * @summary Update receipt lifecycle state
+ */
+export const UpdateReceiptLifecycleParams = zod.object({
+  "receiptId": zod.coerce.number()
+})
+
+export const UpdateReceiptLifecycleBody = zod.object({
+  "action": zod.enum(['approve', 'submit', 'confirm', 'fail', 'veto']),
+  "approvedBy": zod.string().nullish(),
+  "txSignature": zod.string().nullish()
+})
+
+export const UpdateReceiptLifecycleResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.string().nullish(),
+  "alertId": zod.number().nullish(),
+  "txSignature": zod.string().nullish(),
+  "memoJson": zod.record(zod.string(), zod.unknown()).optional(),
+  "cluster": zod.string(),
+  "ts": zod.number(),
+  "status": zod.enum(['proposed', 'approved', 'submitted', 'confirmed', 'failed', 'vetoed']),
+  "proposalStatus": zod.union([zod.literal('proposed'),zod.literal('approved'),zod.literal('vetoed'),zod.literal(null)]).nullish(),
+  "approvedBy": zod.string().nullish(),
+  "approvedAt": zod.coerce.date().nullish(),
+  "vetoedAt": zod.coerce.date().nullish(),
+  "submittedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
+  "failedAt": zod.coerce.date().nullish(),
+  "executionMode": zod.union([zod.literal('manual'),zod.literal('autopilot'),zod.literal(null)]).nullish(),
+  "fixture": zod.object({
+  "fixtureId": zod.number(),
+  "competition": zod.string(),
+  "homeTeam": zod.string(),
+  "awayTeam": zod.string(),
+  "kickoffTs": zod.number(),
+  "status": zod.string(),
+  "homeScore": zod.number().nullish(),
+  "awayScore": zod.number().nullish(),
+  "minutePlayed": zod.number().nullish(),
+  "currentEdgeScore": zod.number().nullish(),
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
+}).optional(),
+  "alert": zod.object({
+  "id": zod.number(),
+  "userId": zod.string().nullish(),
+  "fixtureId": zod.number(),
+  "ts": zod.number(),
+  "edgeScore": zod.number(),
+  "narration": zod.string().nullish(),
+  "action": zod.string(),
+  "fired": zod.boolean(),
+  "fixture": zod.object({
+  "fixtureId": zod.number(),
+  "competition": zod.string(),
+  "homeTeam": zod.string(),
+  "awayTeam": zod.string(),
+  "kickoffTs": zod.number(),
+  "status": zod.string(),
+  "homeScore": zod.number().nullish(),
+  "awayScore": zod.number().nullish(),
+  "minutePlayed": zod.number().nullish(),
+  "currentEdgeScore": zod.number().nullish(),
+  "feedLatencyMs": zod.number().nullish(),
+  "monitoringState": zod.string().nullish().describe('Current lifecycle monitoring state for the fixture.'),
+  "feedHealth": zod.string().nullish().describe('Current provider\/feed health for the fixture.'),
+  "lastSuccessfulIngestAt": zod.coerce.date().nullish().describe('Timestamp of the last successful ingest affecting this fixture.'),
+  "countdownMs": zod.number().nullish().describe('Milliseconds until kickoff for non-live fixtures.'),
+  "isLive": zod.boolean().describe('Whether the fixture is currently live.'),
+  "isFinished": zod.boolean().describe('Whether the fixture is finished.'),
+  "dataFreshnessMs": zod.number().nullish().describe('Milliseconds since the last successful ingest.'),
+  "finishedAt": zod.coerce.date().nullish(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "lastIngestError": zod.string().nullish()
+}).optional()
+}).optional()
+})
+
+
+/**
+ * @summary Retry a failed or vetoed receipt transaction
  */
 export const RetryReceiptParams = zod.object({
   "receiptId": zod.coerce.number()
@@ -487,7 +595,15 @@ export const RetryReceiptResponse = zod.object({
   "memoJson": zod.record(zod.string(), zod.unknown()).optional(),
   "cluster": zod.string(),
   "ts": zod.number(),
-  "status": zod.string(),
+  "status": zod.enum(['proposed', 'approved', 'submitted', 'confirmed', 'failed', 'vetoed']),
+  "proposalStatus": zod.union([zod.literal('proposed'),zod.literal('approved'),zod.literal('vetoed'),zod.literal(null)]).nullish(),
+  "approvedBy": zod.string().nullish(),
+  "approvedAt": zod.coerce.date().nullish(),
+  "vetoedAt": zod.coerce.date().nullish(),
+  "submittedAt": zod.coerce.date().nullish(),
+  "confirmedAt": zod.coerce.date().nullish(),
+  "failedAt": zod.coerce.date().nullish(),
+  "executionMode": zod.union([zod.literal('manual'),zod.literal('autopilot'),zod.literal(null)]).nullish(),
   "fixture": zod.object({
   "fixtureId": zod.number(),
   "competition": zod.string(),

@@ -21,6 +21,15 @@ export function ReceiptTable() {
   const { toast } = useToast();
   const [copiedId, setCopiedId] = React.useState<number | null>(null);
 
+  const statusClasses: Record<string, string> = {
+    proposed: "bg-blue-500 text-blue-500",
+    approved: "bg-purple-500 text-purple-500",
+    submitted: "bg-amber-500 text-amber-500",
+    confirmed: "bg-green-500 text-green-500",
+    failed: "bg-red-500 text-red-500",
+    vetoed: "bg-rose-500 text-rose-500",
+  };
+
   const handleCopy = (text: string, id: number) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -102,16 +111,17 @@ export function ReceiptTable() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
-                    <div className={`w-2 h-2 rounded-full ${
-                      receipt.status === 'confirmed' ? 'bg-green-500' :
-                      receipt.status === 'failed' ? 'bg-red-500' : 'bg-amber-500 animate-pulse'
-                    }`} />
-                    <span className={`text-xs uppercase ${
-                      receipt.status === 'confirmed' ? 'text-green-500' :
-                      receipt.status === 'failed' ? 'text-red-500' : 'text-amber-500'
-                    }`}>
-                      {receipt.status}
-                    </span>
+                    <div className={`w-2 h-2 rounded-full ${statusClasses[receipt.status]?.split(" ")[0] ?? "bg-slate-500"} ${receipt.status === "submitted" ? "animate-pulse" : ""}`} />
+                    <div className="flex flex-col">
+                      <span className={`text-xs uppercase ${statusClasses[receipt.status]?.split(" ")[1] ?? "text-slate-300"}`}>
+                        {receipt.status}
+                      </span>
+                      {(receipt.executionMode || receipt.proposalStatus) && (
+                        <span className="text-[10px] text-muted-foreground uppercase">
+                          {[receipt.executionMode, receipt.proposalStatus].filter(Boolean).join(" / ")}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -130,7 +140,9 @@ export function ReceiptTable() {
                       </Button>
                     </div>
                   ) : (
-                    <span className="text-muted-foreground text-xs italic">Pending...</span>
+                    <span className="text-muted-foreground text-xs italic">
+                      {receipt.status === "proposed" ? "Awaiting approval" : "Awaiting signature"}
+                    </span>
                   )}
                 </TableCell>
                 <TableCell className="text-right">
@@ -146,7 +158,7 @@ export function ReceiptTable() {
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     )}
-                    {receipt.status === 'failed' && (
+                    {(receipt.status === 'failed' || receipt.status === 'vetoed') && (
                       <Button 
                         variant="ghost" 
                         size="icon" 
