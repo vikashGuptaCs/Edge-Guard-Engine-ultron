@@ -1,12 +1,29 @@
 import { db } from "@workspace/db";
 import { txlineEventsTable, fixturesTable, oddsSnapshotsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { getTxlineFixtures, getTxlineOdds, getTxlineScores } from "./txline-client";
+import {
+  getTxlineFixtures,
+  getTxlineOddsSnapshotResult,
+  getTxlineOddsUpdatesResult,
+  getTxlineScoresSnapshotResult,
+  getTxlineScoresUpdatesResult,
+} from "./txline-client";
 import { logger } from "./lib/logger";
 
-const POLL_INTERVAL_MS = 5000;
+const BASE_POLL_INTERVAL_MS = 5000;
+const DISCOVERED_REFRESH_SKIP = 6;
+const UPCOMING_REFRESH_SKIP = 3;
+const PREMATCH_REFRESH_SKIP = 1;
+const LIVE_REFRESH_SKIP = 0;
+const HALFTIME_REFRESH_SKIP = 2;
+const FINISHED_FINALIZATION_PASSES = 2;
+
 let pollerActive = false;
 let pollerTimer: ReturnType<typeof setTimeout> | null = null;
+let pollCycleRunning = false;
+
+const fixtureCycleCounts = new Map<number, number>();
+const fixtureFinalizationCounts = new Map<number, number>();
 
 type FixtureLifecycleState =
   | "discovered"
@@ -19,15 +36,92 @@ type FixtureLifecycleState =
 
 type FeedHealthState = "unknown" | "healthy" | "degraded" | "empty" | "error";
 
-async function safeParse(text: string): Promise<unknown[]> {
-  const trimmed = text.trim();
-  if (!trimmed || trimmed === '""' || trimmed === "") return [];
-  try {
-    const parsed = JSON.parse(trimmed);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+function nextFixtureCycleCount(fixtureId: number): number {
+  const next = (fixtureCycleCounts.get(fixtureId) ?? 0) + 1;
+  fixtureCycleCounts.set(fixtureId, next);
+  return next;
+}
+
+function shouldPollHeavily(monitoringState: string, cycleCount: number): boolean {
+  switch (monitoringState) {
+    case "discovered":
+      return cycleCount % DISCOVERED_REFRESH_SKIP === 0;
+    case "upcoming":
+      return cycleCount % UPCOMING_REFRESH_SKIP === 0;
+    case "prematch_monitoring":
+      return cycleCount % PREMATCH_REFRESH_SKIP === 0;
+    case "live":
+      return LIVE_REFRESH_SKIP === 0 ? true : cycleCount % LIVE_REFRESH_SKIP === 0;
+    case "halftime":
+      return cycleCount % HALFTIME_REFRESH_SKIP === 0;
+    case "finished":
+      return true;
+    default:
+      return false;
   }
+}
+
+function shouldContinueFinishedFinalization(fixtureId: number): boolean {
+  const count = fixtureFinalizationCounts.get(fixtureId) ?? 0;
+  return count < FINISHED_FINALIZATION_PASSES;
+}
+
+function markFinishedFinalizationPass(fixtureId: number): void {
+  const next = (fixtureFinalizationCounts.get(fixtureId) ?? 0) + 1;
+  fixtureFinalizationCounts.set(fixtureId, next);
+}
+
+function isTxlineErrorCategory(category: string): boolean {
+  return (
+    category === "transport_error" ||
+    category === "endpoint_error" ||
+    category === "auth_error" ||
+    category === "parse_error"
+  );
+}
+
+async function loadLiveFixtureDataWithFallback(fixtureId: number, emptyCount: number) {
+  const oddsUpdates = await getTxlineOddsUpdatesResult(fixtureId);
+  const scoresUpdates = await getTxlineScoresUpdatesResult(fixtureId);
+
+  const shouldFallback =
+    oddsUpdates.data.length + scoresUpdates.data.length === 0 && emptyCount >= 2;
+
+  if (!shouldFallback) {
+    return {
+      odds: oddsUpdates.data,
+      scores: scoresUpdates.data,
+      usedFallback: false,
+      hadError:
+        isTxlineErrorCategory(oddsUpdates.meta.category) ||
+        isTxlineErrorCategory(scoresUpdates.meta.category),
+    };
+  }
+
+  const oddsSnapshot = await getTxlineOddsSnapshotResult(fixtureId);
+  const scoresSnapshot = await getTxlineScoresSnapshotResult(fixtureId);
+
+  return {
+    odds: oddsSnapshot.data,
+    scores: scoresSnapshot.data,
+    usedFallback: true,
+    hadError:
+      isTxlineErrorCategory(oddsSnapshot.meta.category) ||
+      isTxlineErrorCategory(scoresSnapshot.meta.category),
+  };
+}
+
+async function loadSnapshotStyleFixtureData(fixtureId: number) {
+  const oddsSnapshot = await getTxlineOddsSnapshotResult(fixtureId);
+  const scoresSnapshot = await getTxlineScoresSnapshotResult(fixtureId);
+
+  return {
+    odds: oddsSnapshot.data,
+    scores: scoresSnapshot.data,
+    hadError:
+      isTxlineErrorCategory(oddsSnapshot.meta.category) ||
+      isTxlineErrorCategory(scoresSnapshot.meta.category),
+  };
 }
 
 function mapProviderStatus(raw: any): string {
@@ -200,69 +294,77 @@ async function pollFixture(fixtureId: number): Promise<void> {
 
   if (!fixture) return;
 
+  const cycleCount = nextFixtureCycleCount(fixtureId);
   const now = new Date();
+
+  if (!shouldPollHeavily(String(fixture.monitoringState), cycleCount)) {
+    return;
+  }
+
   let odds: any[] = [];
   let scores: any[] = [];
   let hadError = false;
+  let usedFallback = false;
 
   try {
-    if (fixture.monitoringState === "discovered") {
-      await db
-        .update(fixturesTable)
-        .set({
-          lastSuccessfulIngestAt: now,
-          feedHealth: "unknown",
-        })
-        .where(eq(fixturesTable.fixtureId, fixtureId));
-      return;
-    }
+    switch (fixture.monitoringState) {
+      case "discovered": {
+        await db
+          .update(fixturesTable)
+          .set({ lastSuccessfulIngestAt: now })
+          .where(eq(fixturesTable.fixtureId, fixtureId));
+        return;
+      }
 
-    if (
-      fixture.monitoringState === "upcoming" ||
-      fixture.monitoringState === "prematch_monitoring" ||
-      fixture.monitoringState === "live" ||
-      fixture.monitoringState === "halftime"
-    ) {
-      // TODO(phase-3): switch live fixtures to explicit updates-result methods with snapshot fallback.
-      const oddsResult = await getTxlineOdds(fixtureId);
-      const scoresResult = await getTxlineScores(fixtureId);
-      odds = Array.isArray(oddsResult) ? oddsResult : ((await safeParse(String(oddsResult))) as any[]);
-      scores = Array.isArray(scoresResult)
-        ? scoresResult
-        : ((await safeParse(String(scoresResult))) as any[]);
+      case "upcoming":
+      case "prematch_monitoring": {
+        const result = await loadSnapshotStyleFixtureData(fixtureId);
+        odds = result.odds;
+        scores = result.scores;
+        hadError = result.hadError;
+        break;
+      }
+
+      case "live":
+      case "halftime": {
+        const result = await loadLiveFixtureDataWithFallback(
+          fixtureId,
+          Number(fixture.feedEmptyCount ?? 0)
+        );
+        odds = result.odds;
+        scores = result.scores;
+        hadError = result.hadError;
+        usedFallback = result.usedFallback;
+        break;
+      }
+
+      case "finished": {
+        if (!shouldContinueFinishedFinalization(fixtureId)) {
+          return;
+        }
+
+        const result = await loadSnapshotStyleFixtureData(fixtureId);
+        odds = result.odds;
+        scores = result.scores;
+        hadError = result.hadError;
+        markFinishedFinalizationPass(fixtureId);
+        break;
+      }
+
+      default:
+        return;
     }
   } catch (err) {
-    hadError = true;
-
     await db
       .update(fixturesTable)
       .set({
         feedHealth: "error",
-        lastIngestError: err instanceof Error ? err.message : "Unknown ingest error",
+        lastIngestError: err instanceof Error ? err.message : "Unknown polling error",
       })
       .where(eq(fixturesTable.fixtureId, fixtureId));
 
     logger.warn({ err, fixtureId }, "txline poller: fixture poll failed");
     return;
-  }
-
-  const totalItems = odds.length + scores.length;
-  const nextEmptyCount = totalItems === 0 ? (fixture.feedEmptyCount ?? 0) + 1 : 0;
-  const nextFeedHealth = computeFeedHealth({
-    status: String(fixture.status),
-    oddsCount: odds.length,
-    scoresCount: scores.length,
-    feedEmptyCount: nextEmptyCount,
-    hadError,
-  });
-
-  if (odds.length > 0) {
-    await upsertEvents(fixtureId, "odds", odds);
-    await insertOddsSnapshots(fixtureId, odds);
-  }
-
-  if (scores.length > 0) {
-    await upsertEvents(fixtureId, "scores", scores);
   }
 
   let scoreUpdate: Record<string, number | string> = {};
@@ -303,6 +405,25 @@ async function pollFixture(fixtureId: number): Promise<void> {
 
   const effectiveStatus =
     typeof scoreUpdate.status === "string" ? scoreUpdate.status : String(fixture.status);
+
+  const totalItems = odds.length + scores.length;
+  const nextEmptyCount = totalItems === 0 ? Number(fixture.feedEmptyCount ?? 0) + 1 : 0;
+  const nextFeedHealth = computeFeedHealth({
+    status: effectiveStatus,
+    oddsCount: odds.length,
+    scoresCount: scores.length,
+    feedEmptyCount: nextEmptyCount,
+    hadError,
+  });
+
+  if (odds.length > 0) {
+    await insertOddsSnapshots(fixtureId, odds);
+    await upsertEvents(fixtureId, "odds", odds);
+  }
+
+  if (scores.length > 0) {
+    await upsertEvents(fixtureId, "scores", scores);
+  }
   const nextMonitoringState = computeMonitoringState({
     providerStatus: effectiveStatus,
     kickoffTs: Number(fixture.kickoffTs),
@@ -310,12 +431,35 @@ async function pollFixture(fixtureId: number): Promise<void> {
     feedEmptyCount: nextEmptyCount,
   });
 
+  if (fixture.monitoringState !== nextMonitoringState && nextMonitoringState === "live") {
+    logger.info({ fixtureId, from: fixture.monitoringState, to: nextMonitoringState }, "txline poller: fixture entered live");
+  }
+
+  if (fixture.monitoringState !== nextMonitoringState && nextMonitoringState === "finished") {
+    logger.info({ fixtureId, from: fixture.monitoringState, to: nextMonitoringState }, "txline poller: fixture entered finished");
+  }
+
+  if (usedFallback) {
+    logger.warn({ fixtureId, feedEmptyCount: fixture.feedEmptyCount }, "txline poller: live snapshot fallback used");
+  }
+
+  if (
+    (fixture.monitoringState === "live" || fixture.monitoringState === "halftime") &&
+    nextFeedHealth === "degraded" &&
+    fixture.feedHealth !== "degraded"
+  ) {
+    logger.warn(
+      { fixtureId, feedEmptyCount: nextEmptyCount },
+      "txline poller: repeated empty live responses"
+    );
+  }
+
   await db
     .update(fixturesTable)
     .set({
       ...scoreUpdate,
       monitoringState: nextMonitoringState,
-      feedHealth: nextFeedHealth,
+      feedHealth: usedFallback && nextFeedHealth === "healthy" ? "degraded" : nextFeedHealth,
       feedEmptyCount: nextEmptyCount,
       lastSuccessfulIngestAt: now,
       lastIngestError: null,
@@ -328,6 +472,9 @@ async function pollFixture(fixtureId: number): Promise<void> {
 }
 
 async function runPollCycle(): Promise<void> {
+  if (pollCycleRunning) return;
+  pollCycleRunning = true;
+
   try {
     const fixtures = await getTxlineFixtures();
     if (!Array.isArray(fixtures) || fixtures.length === 0) return;
@@ -341,6 +488,8 @@ async function runPollCycle(): Promise<void> {
     }
   } catch (err) {
     logger.warn({ err }, "txline poller: cycle failed");
+  } finally {
+    pollCycleRunning = false;
   }
 }
 
@@ -359,7 +508,7 @@ export function startTxlinePoller(): void {
       if (!pollerActive) return;
       await runPollCycle();
       if (pollerActive) schedule();
-    }, POLL_INTERVAL_MS);
+    }, BASE_POLL_INTERVAL_MS);
   };
 
   runPollCycle().then(schedule);
