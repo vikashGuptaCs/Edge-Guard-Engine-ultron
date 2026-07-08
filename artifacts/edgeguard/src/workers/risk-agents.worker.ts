@@ -82,7 +82,12 @@ async function runCycle() {
 
       const latest = history[history.length - 1];
       const result = computeRiskSignals(fixtureId, history, latest);
+      
+      // Post signals to UI thread for live display
       self.postMessage({ type: 'SIGNALS', ...result });
+      
+      // Persist signals to backend database
+      void persistSignals(result.fixtureId, result.ts, result.signals);
     } catch (err) {
       self.postMessage({ type: 'ERROR', message: String(err), fixtureId });
     }
@@ -94,6 +99,29 @@ async function fetchOdds(fixtureId: number): Promise<OddsSnapshot[]> {
   const res = await fetch(url);
   if (!res.ok) return [];
   return res.json() as Promise<OddsSnapshot[]>;
+}
+
+async function persistSignals(fixtureId: number, ts: number, signals: WorkerSignal[]): Promise<void> {
+  try {
+    const payload = signals.map(sig => ({
+      fixtureId,
+      ts,
+      agentName: sig.agentName,
+      signalType: sig.signalType,
+      confidence: sig.confidence,
+      payload: sig.payload,
+    }));
+    
+    const url = `${apiBasePath}/api/agents/signals`;
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.warn('[RiskWorker] failed to persist signals:', err);
+    // Don't throw - log and continue; UI display should not be blocked
+  }
 }
 
 // ── Agent Algorithms ──────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { agentSignalsTable, fixturesTable } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { isSignalFresh } from "./lib/alerting";
+import { insertAgentSignalSchema } from "@workspace/db";
 
 const AGENT_NAMES = ["Sentinel", "Overreaction", "Volatility", "Pattern", "Orchestrator"];
 
@@ -49,6 +50,54 @@ router.get("/agents/signals", async (req, res) => {
     return;
   } catch (err) {
     req.log.error({ err }, "listAgentSignals error");
+    res.status(500).json({ error: "Internal server error" });
+    return;
+  }
+});
+
+router.post("/agents/signals", async (req, res) => {
+  try {
+    const signals = Array.isArray(req.body) ? req.body : [req.body];
+    
+    // Validate and transform incoming signals
+    const validSignals = signals
+      .filter((sig: unknown) => {
+        if (typeof sig !== 'object' || sig === null) return false;
+        const s = sig as Record<string, unknown>;
+        return (
+          typeof s.fixtureId === 'number' &&
+          typeof s.ts === 'number' &&
+          typeof s.agentName === 'string' &&
+          typeof s.signalType === 'string' &&
+          (typeof s.confidence === 'number' || typeof s.confidence === 'string')
+        );
+      })
+      .map((sig: Record<string, unknown>) => ({
+        fixtureId: sig.fixtureId as number,
+        ts: sig.ts as number,
+        agentName: sig.agentName as string,
+        signalType: sig.signalType as string,
+        confidence: String(sig.confidence),
+        payload: sig.payload ?? null,
+      }));
+
+    if (validSignals.length === 0) {
+      res.status(400).json({ error: "No valid signals to save" });
+      return;
+    }
+
+    // Insert signals in batches to avoid overwhelming the DB
+    const batchSize = 10;
+    for (let i = 0; i < validSignals.length; i += batchSize) {
+      const batch = validSignals.slice(i, i + batchSize);
+      await db.insert(agentSignalsTable).values(batch).onConflictDoNothing();
+    }
+
+    req.log.debug({ count: validSignals.length }, "saved agent signals");
+    res.status(201).json({ saved: validSignals.length });
+    return;
+  } catch (err) {
+    req.log.error({ err }, "saveAgentSignals error");
     res.status(500).json({ error: "Internal server error" });
     return;
   }
