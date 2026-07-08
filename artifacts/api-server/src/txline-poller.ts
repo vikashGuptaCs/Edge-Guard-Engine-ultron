@@ -17,6 +17,7 @@ const PREMATCH_REFRESH_SKIP = 1;
 const LIVE_REFRESH_SKIP = 0;
 const HALFTIME_REFRESH_SKIP = 2;
 const FINISHED_FINALIZATION_PASSES = 2;
+const RECENT_RESULTS_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 let pollerActive = false;
 let pollerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -69,6 +70,30 @@ function shouldContinueFinishedFinalization(fixtureId: number): boolean {
 function markFinishedFinalizationPass(fixtureId: number): void {
   const next = (fixtureFinalizationCounts.get(fixtureId) ?? 0) + 1;
   fixtureFinalizationCounts.set(fixtureId, next);
+}
+
+function deriveLifecycleTransitionFields(args: {
+  currentStatus: string;
+  nextStatus: string;
+  firstLiveAt: Date | null | undefined;
+  finishedAt: Date | null | undefined;
+  now: Date;
+}) {
+  const { currentStatus, nextStatus, firstLiveAt, finishedAt, now } = args;
+
+  return {
+    firstLiveAt:
+      firstLiveAt ??
+      (currentStatus !== "live" && nextStatus === "live" ? now : firstLiveAt),
+    finishedAt:
+      finishedAt ??
+      (currentStatus !== "finished" && nextStatus === "finished" ? now : finishedAt),
+  };
+}
+
+function shouldMarkArchived(finishedAt: Date | null | undefined, now: Date): boolean {
+  if (!finishedAt) return false;
+  return now.getTime() - finishedAt.getTime() > RECENT_RESULTS_RETENTION_MS;
 }
 
 function isTxlineErrorCategory(category: string): boolean {
@@ -232,6 +257,36 @@ async function upsertFixtureRecord(f: any): Promise<void> {
   const awayTeam = String(f.Participant2 ?? "Away");
 
   try {
+    const [existing] = await db
+      .select({
+        status: fixturesTable.status,
+        monitoringState: fixturesTable.monitoringState,
+        firstLiveAt: fixturesTable.firstLiveAt,
+        finishedAt: fixturesTable.finishedAt,
+      })
+      .from(fixturesTable)
+      .where(eq(fixturesTable.fixtureId, fixtureId))
+      .limit(1);
+
+    const existingMonitoringState = existing?.monitoringState != null ? String(existing.monitoringState) : null;
+    const nextMonitoringState =
+      existingMonitoringState === "archived" ? "archived" : monitoringState;
+
+    const transitionFields = deriveLifecycleTransitionFields({
+      currentStatus: existing?.status != null ? String(existing.status) : "pre",
+      nextStatus: providerStatus,
+      firstLiveAt: existing?.firstLiveAt,
+      finishedAt: existing?.finishedAt,
+      now,
+    });
+
+    if (existingMonitoringState !== nextMonitoringState && nextMonitoringState === "prematch_monitoring") {
+      logger.info(
+        { fixtureId, from: existingMonitoringState, to: nextMonitoringState },
+        "txline poller: fixture entered prematch_monitoring"
+      );
+    }
+
     await db
       .insert(fixturesTable)
       .values({
@@ -241,11 +296,13 @@ async function upsertFixtureRecord(f: any): Promise<void> {
         awayTeam,
         kickoffTs,
         status: providerStatus,
-        monitoringState,
+        monitoringState: nextMonitoringState,
         feedHealth: "unknown",
         lastFixtureSyncAt: now,
         lastSuccessfulIngestAt: now,
         lastIngestError: null,
+        firstLiveAt: transitionFields.firstLiveAt,
+        finishedAt: transitionFields.finishedAt,
       })
       .onConflictDoUpdate({
         target: fixturesTable.fixtureId,
@@ -255,10 +312,12 @@ async function upsertFixtureRecord(f: any): Promise<void> {
           awayTeam,
           kickoffTs,
           status: providerStatus,
-          monitoringState,
+          monitoringState: nextMonitoringState,
           lastFixtureSyncAt: now,
           lastSuccessfulIngestAt: now,
           lastIngestError: null,
+          firstLiveAt: transitionFields.firstLiveAt,
+          finishedAt: transitionFields.finishedAt,
         },
       });
   } catch (err) {
@@ -341,6 +400,23 @@ async function pollFixture(fixtureId: number): Promise<void> {
       }
 
       case "finished": {
+        if (shouldMarkArchived(fixture.finishedAt, now)) {
+          const nextArchivedAt = fixture.archivedAt ?? now;
+
+          if (!fixture.archivedAt) {
+            logger.info({ fixtureId }, "txline poller: fixture became archived");
+          }
+
+          await db
+            .update(fixturesTable)
+            .set({
+              monitoringState: "archived",
+              archivedAt: nextArchivedAt,
+            })
+            .where(eq(fixturesTable.fixtureId, fixtureId));
+          return;
+        }
+
         if (!shouldContinueFinishedFinalization(fixtureId)) {
           return;
         }
@@ -433,12 +509,44 @@ async function pollFixture(fixtureId: number): Promise<void> {
     feedEmptyCount: nextEmptyCount,
   });
 
-  if (fixture.monitoringState !== nextMonitoringState && nextMonitoringState === "live") {
-    logger.info({ fixtureId, from: fixture.monitoringState, to: nextMonitoringState }, "txline poller: fixture entered live");
-  }
+  const transitionFields = deriveLifecycleTransitionFields({
+    currentStatus: String(fixture.status),
+    nextStatus: effectiveStatus,
+    firstLiveAt: fixture.firstLiveAt,
+    finishedAt: fixture.finishedAt,
+    now,
+  });
 
-  if (fixture.monitoringState !== nextMonitoringState && nextMonitoringState === "finished") {
-    logger.info({ fixtureId, from: fixture.monitoringState, to: nextMonitoringState }, "txline poller: fixture entered finished");
+  const nextArchivedAt =
+    effectiveStatus === "finished" && shouldMarkArchived(transitionFields.finishedAt ?? fixture.finishedAt, now)
+      ? fixture.archivedAt ?? now
+      : fixture.archivedAt;
+
+  const finalMonitoringState =
+    nextArchivedAt != null ? "archived" : nextMonitoringState;
+
+  if (fixture.monitoringState !== finalMonitoringState) {
+    if (finalMonitoringState === "prematch_monitoring") {
+      logger.info(
+        { fixtureId, from: fixture.monitoringState, to: finalMonitoringState },
+        "txline poller: fixture entered prematch_monitoring"
+      );
+    } else if (finalMonitoringState === "live") {
+      logger.info(
+        { fixtureId, from: fixture.monitoringState, to: finalMonitoringState },
+        "txline poller: fixture entered live"
+      );
+    } else if (finalMonitoringState === "finished") {
+      logger.info(
+        { fixtureId, from: fixture.monitoringState, to: finalMonitoringState },
+        "txline poller: fixture entered finished"
+      );
+    } else if (finalMonitoringState === "archived") {
+      logger.info(
+        { fixtureId, from: fixture.monitoringState, to: finalMonitoringState },
+        "txline poller: fixture became archived"
+      );
+    }
   }
 
   if (usedFallback) {
@@ -460,7 +568,7 @@ async function pollFixture(fixtureId: number): Promise<void> {
     .update(fixturesTable)
     .set({
       ...scoreUpdate,
-      monitoringState: nextMonitoringState,
+      monitoringState: finalMonitoringState,
       feedHealth: usedFallback && nextFeedHealth === "healthy" ? "degraded" : nextFeedHealth,
       feedEmptyCount: nextEmptyCount,
       lastSuccessfulIngestAt: now,
@@ -469,10 +577,9 @@ async function pollFixture(fixtureId: number): Promise<void> {
       lastScoresSyncAt: scores.length > 0 ? now : fixture.lastScoresSyncAt,
       lastOddsCursor: fixture.lastOddsCursor,
       lastScoresCursor: fixture.lastScoresCursor,
-      firstLiveAt:
-        fixture.firstLiveAt ?? (effectiveStatus === "live" ? now : fixture.firstLiveAt),
-      finishedAt:
-        effectiveStatus === "finished" && !fixture.finishedAt ? now : fixture.finishedAt,
+      firstLiveAt: transitionFields.firstLiveAt,
+      finishedAt: transitionFields.finishedAt,
+      archivedAt: nextArchivedAt,
     })
     .where(eq(fixturesTable.fixtureId, fixtureId));
 }
