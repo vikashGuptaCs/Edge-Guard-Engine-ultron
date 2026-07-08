@@ -26,10 +26,18 @@ router.get("/fixtures", async (req, res) => {
       minutePlayed: f.minutePlayed,
       currentEdgeScore: f.currentEdgeScore,
       feedLatencyMs: f.feedLatencyMs,
+      monitoringState: f.monitoringState,
+      feedHealth: f.feedHealth,
+      lastSuccessfulIngestAt: f.lastSuccessfulIngestAt?.toISOString() ?? null,
+      finishedAt: f.finishedAt?.toISOString() ?? null,
+      archivedAt: f.archivedAt?.toISOString() ?? null,
+      lastIngestError: f.lastIngestError,
     })));
+    return;
   } catch (err) {
     req.log.error({ err }, "listFixtures error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 
@@ -38,7 +46,8 @@ router.get("/fixtures/:fixtureId", async (req, res) => {
     const fixtureId = parseInt(req.params.fixtureId);
     const [fixture] = await db.select().from(fixturesTable).where(eq(fixturesTable.fixtureId, fixtureId));
     if (!fixture) {
-      return res.status(404).json({ error: "Fixture not found" });
+      res.status(404).json({ error: "Fixture not found" });
+      return;
     }
     res.json({
       fixtureId: fixture.fixtureId,
@@ -52,10 +61,18 @@ router.get("/fixtures/:fixtureId", async (req, res) => {
       minutePlayed: fixture.minutePlayed,
       currentEdgeScore: fixture.currentEdgeScore,
       feedLatencyMs: fixture.feedLatencyMs,
+      monitoringState: fixture.monitoringState,
+      feedHealth: fixture.feedHealth,
+      lastSuccessfulIngestAt: fixture.lastSuccessfulIngestAt?.toISOString() ?? null,
+      finishedAt: fixture.finishedAt?.toISOString() ?? null,
+      archivedAt: fixture.archivedAt?.toISOString() ?? null,
+      lastIngestError: fixture.lastIngestError,
     });
+    return;
   } catch (err) {
     req.log.error({ err }, "getFixture error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 

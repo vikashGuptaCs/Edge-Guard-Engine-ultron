@@ -20,6 +20,8 @@ export interface Fixture {
   awayTeam: string;
   kickoffTs: number;
   status: string;
+  monitoringState: string;
+  feedHealth: string;
   /** @nullable */
   homeScore?: number | null;
   /** @nullable */
@@ -30,6 +32,14 @@ export interface Fixture {
   currentEdgeScore?: number | null;
   /** @nullable */
   feedLatencyMs?: number | null;
+  /** @nullable */
+  lastSuccessfulIngestAt?: string | null;
+  /** @nullable */
+  finishedAt?: string | null;
+  /** @nullable */
+  archivedAt?: string | null;
+  /** @nullable */
+  lastIngestError?: string | null;
 }
 
 export interface OddsSnapshot {
@@ -254,4 +264,3 @@ limit?: number;
 };
 
 export type GetTxlineOdds200Item = { [key: string]: unknown };
-

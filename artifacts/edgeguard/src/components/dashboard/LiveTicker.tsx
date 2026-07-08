@@ -1,10 +1,13 @@
 import React from "react";
-import { useGetLiveTicker } from "@workspace/api-client-react";
+import { getGetLiveTickerQueryKey, useGetLiveTicker } from "@workspace/api-client-react";
 import { Link } from "wouter";
 
 export function LiveTicker() {
   const { data: tickerItems = [], isLoading } = useGetLiveTicker({
-    query: { refetchInterval: 5000 }
+    query: {
+      queryKey: getGetLiveTickerQueryKey(),
+      refetchInterval: 5000,
+    }
   });
 
   if (isLoading && tickerItems.length === 0) {
@@ -19,7 +22,13 @@ export function LiveTicker() {
     );
   }
 
-  if (tickerItems.length === 0) return null;
+  if (tickerItems.length === 0) {
+    return (
+      <div className="h-10 bg-card/50 border-b border-t flex items-center px-4 text-xs font-mono text-muted-foreground">
+        No live ticker entries available right now.
+      </div>
+    );
+  }
 
   return (
     <div className="h-10 bg-card/50 border-b border-t flex items-center overflow-hidden relative group">

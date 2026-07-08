@@ -31,11 +31,17 @@ export const ListFixturesResponseItem = zod.object({
   "awayTeam": zod.string(),
   "kickoffTs": zod.number(),
   "status": zod.string(),
+  "monitoringState": zod.string(),
+  "feedHealth": zod.string(),
   "homeScore": zod.number().nullish(),
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "lastSuccessfulIngestAt": zod.string().nullish(),
+  "finishedAt": zod.string().nullish(),
+  "archivedAt": zod.string().nullish(),
+  "lastIngestError": zod.string().nullish()
 })
 export const ListFixturesResponse = zod.array(ListFixturesResponseItem)
 
@@ -54,11 +60,17 @@ export const GetFixtureResponse = zod.object({
   "awayTeam": zod.string(),
   "kickoffTs": zod.number(),
   "status": zod.string(),
+  "monitoringState": zod.string(),
+  "feedHealth": zod.string(),
   "homeScore": zod.number().nullish(),
   "awayScore": zod.number().nullish(),
   "minutePlayed": zod.number().nullish(),
   "currentEdgeScore": zod.number().nullish(),
-  "feedLatencyMs": zod.number().nullish()
+  "feedLatencyMs": zod.number().nullish(),
+  "lastSuccessfulIngestAt": zod.string().nullish(),
+  "finishedAt": zod.string().nullish(),
+  "archivedAt": zod.string().nullish(),
+  "lastIngestError": zod.string().nullish()
 })
 
 
@@ -582,5 +594,4 @@ export const NarrateAlertResponse = zod.object({
   "narration": zod.string(),
   "source": zod.string()
 })
-
 

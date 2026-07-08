@@ -1,5 +1,5 @@
 import React from "react";
-import { useGetRiskGrid } from "@workspace/api-client-react";
+import { getGetRiskGridQueryKey, useGetRiskGrid } from "@workspace/api-client-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +10,10 @@ import { Zap } from "lucide-react";
 
 export function RiskGrid() {
   const { data: gridItems = [], isLoading } = useGetRiskGrid({
-    query: { refetchInterval: 5000 }
+    query: {
+      queryKey: getGetRiskGridQueryKey(),
+      refetchInterval: 5000,
+    }
   });
 
   const { workerStatus, getFixtureRisk } = useRiskAgentContext();
