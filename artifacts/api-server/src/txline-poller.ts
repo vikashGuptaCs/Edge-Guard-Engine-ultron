@@ -1,11 +1,23 @@
 import { db } from "@workspace/db";
 import { txlineEventsTable, fixturesTable, oddsSnapshotsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { getTxlineFixtures, getTxlineOdds, getTxlineScores } from "./txline-client";
 import { logger } from "./lib/logger";
 
 const POLL_INTERVAL_MS = 5000;
 let pollerActive = false;
 let pollerTimer: ReturnType<typeof setTimeout> | null = null;
+
+type FixtureLifecycleState =
+  | "discovered"
+  | "upcoming"
+  | "prematch_monitoring"
+  | "live"
+  | "halftime"
+  | "finished"
+  | "archived";
+
+type FeedHealthState = "unknown" | "healthy" | "degraded" | "empty" | "error";
 
 async function safeParse(text: string): Promise<unknown[]> {
   const trimmed = text.trim();
@@ -16,6 +28,71 @@ async function safeParse(text: string): Promise<unknown[]> {
   } catch {
     return [];
   }
+}
+
+function mapProviderStatus(raw: any): string {
+  const gameState = raw?.GameState;
+
+  if (gameState != null) {
+    const mapped = {
+      0: "pre",
+      1: "live",
+      2: "halftime",
+      3: "finished",
+    } as const;
+
+    return mapped[gameState as keyof typeof mapped] ?? `state_${gameState}`;
+  }
+
+  return raw?.Status ?? "pre";
+}
+
+function computeMonitoringState(args: {
+  providerStatus: string;
+  kickoffTs: number;
+  nowTs: number;
+  feedEmptyCount?: number;
+}): FixtureLifecycleState {
+  const { providerStatus, kickoffTs, nowTs, feedEmptyCount = 0 } = args;
+
+  if (providerStatus === "finished") return "finished";
+  if (providerStatus === "halftime") return "halftime";
+  if (providerStatus === "live") return "live";
+
+  const msToKickoff = kickoffTs - nowTs;
+
+  if (msToKickoff <= 0 && feedEmptyCount >= 3) {
+    return "prematch_monitoring";
+  }
+
+  if (msToKickoff <= 30 * 60 * 1000) {
+    return "prematch_monitoring";
+  }
+
+  if (msToKickoff <= 6 * 60 * 60 * 1000) {
+    return "upcoming";
+  }
+
+  return "discovered";
+}
+
+function computeFeedHealth(args: {
+  status: string;
+  oddsCount: number;
+  scoresCount: number;
+  feedEmptyCount: number;
+  hadError: boolean;
+}): FeedHealthState {
+  const { status, oddsCount, scoresCount, feedEmptyCount, hadError } = args;
+
+  if (hadError) return "error";
+  if (oddsCount > 0 || scoresCount > 0) return "healthy";
+
+  if (status === "live" || status === "halftime") {
+    return feedEmptyCount >= 3 ? "degraded" : "empty";
+  }
+
+  return "unknown";
 }
 
 async function upsertEvents(
@@ -40,17 +117,54 @@ async function upsertEvents(
   return count;
 }
 
-async function upsertFixtureRecord(f: any) {
-  const fixtureId = f.FixtureId;
-  const homeTeam = f.Participant1IsHome ? f.Participant1 : f.Participant2;
-  const awayTeam = f.Participant1IsHome ? f.Participant2 : f.Participant1;
-  const kickoffTs = typeof f.StartTime === 'number' ? f.StartTime : Date.parse(String(f.StartTime));
-  const competition = f.Competition ?? f.CompetitionName ?? "";
-  const status = f.GameState != null ? ( {0: 'pre',1: 'live',2: 'halftime',3: 'finished'}[f.GameState] ?? `state_${f.GameState}` ) : (f.Status ?? 'pre');
+async function upsertFixtureRecord(f: any): Promise<void> {
+  const now = new Date();
+  const nowTs = now.getTime();
+  const kickoffCandidate = f.StartTime ?? f.KickoffTs ?? 0;
+  const kickoffTs =
+    typeof kickoffCandidate === "number"
+      ? kickoffCandidate
+      : Number(kickoffCandidate) || Date.parse(String(kickoffCandidate)) || 0;
+  const providerStatus = mapProviderStatus(f);
+  const monitoringState = computeMonitoringState({
+    providerStatus,
+    kickoffTs,
+    nowTs,
+    feedEmptyCount: 0,
+  });
+  const fixtureId = Number(f.FixtureId);
+  const competition = String(f.Competition ?? f.CompetitionName ?? "Unknown");
+  const homeTeam = String(f.Participant1 ?? "Home");
+  const awayTeam = String(f.Participant2 ?? "Away");
 
   try {
-    await db.insert(fixturesTable).values({ fixtureId, competition, homeTeam, awayTeam, kickoffTs, status }).onConflictDoNothing();
-    await db.update(fixturesTable).set({ competition, homeTeam, awayTeam, kickoffTs, status }).where(fixturesTable.fixtureId.eq(fixtureId));
+    await db
+      .insert(fixturesTable)
+      .values({
+        fixtureId,
+        competition,
+        homeTeam,
+        awayTeam,
+        kickoffTs,
+        status: providerStatus,
+        monitoringState,
+        feedHealth: "unknown",
+        lastSuccessfulIngestAt: now,
+        lastIngestError: null,
+      })
+      .onConflictDoUpdate({
+        target: fixturesTable.fixtureId,
+        set: {
+          competition,
+          homeTeam,
+          awayTeam,
+          kickoffTs,
+          status: providerStatus,
+          monitoringState,
+          lastSuccessfulIngestAt: now,
+          lastIngestError: null,
+        },
+      });
   } catch (err) {
     logger.warn({ err, fixtureId }, "upsertFixtureRecord failed");
   }
@@ -78,42 +192,138 @@ async function insertOddsSnapshots(fixtureId: number, odds: any[]) {
 }
 
 async function pollFixture(fixtureId: number): Promise<void> {
-  try {
-    const [oddsRaw, scoresRaw] = await Promise.allSettled([
-      getTxlineOdds(fixtureId),
-      getTxlineScores(fixtureId),
-    ]);
+  const [fixture] = await db
+    .select()
+    .from(fixturesTable)
+    .where(eq(fixturesTable.fixtureId, fixtureId))
+    .limit(1);
 
-    if (oddsRaw.status === "fulfilled" && Array.isArray(oddsRaw.value)) {
-      await upsertEvents(fixtureId, "odds", oddsRaw.value);
-      await insertOddsSnapshots(fixtureId, oddsRaw.value as any[]);
+  if (!fixture) return;
+
+  const now = new Date();
+  let odds: any[] = [];
+  let scores: any[] = [];
+  let hadError = false;
+
+  try {
+    if (fixture.monitoringState === "discovered") {
+      await db
+        .update(fixturesTable)
+        .set({
+          lastSuccessfulIngestAt: now,
+          feedHealth: "unknown",
+        })
+        .where(eq(fixturesTable.fixtureId, fixtureId));
+      return;
     }
 
-    if (scoresRaw.status === "fulfilled") {
-      const scores = Array.isArray(scoresRaw.value) ? scoresRaw.value : await safeParse(String(scoresRaw.value)).then(r => r);
-      await upsertEvents(fixtureId, "scores", scores);
-      try {
-        for (const s of scores as any[]) {
-          const home = typeof s.HomeScore === 'number' ? s.HomeScore : (s.homeScore ?? null);
-          const away = typeof s.AwayScore === 'number' ? s.AwayScore : (s.awayScore ?? null);
-          const minute = typeof s.Minute === 'number' ? s.Minute : (s.minute ?? null);
-          const status = s.GameState != null ? (s.GameState === 1 ? 'live' : s.GameState === 3 ? 'finished' : null) : null;
-          const update: any = {};
-          if (home != null) update.homeScore = home;
-          if (away != null) update.awayScore = away;
-          if (minute != null) update.minutePlayed = minute;
-          if (status) update.status = status;
-          if (Object.keys(update).length) {
-            await db.update(fixturesTable).set(update).where(fixturesTable.fixtureId.eq(fixtureId));
-          }
-        }
-      } catch (err) {
-        // ignore per-item update errors
-      }
+    if (
+      fixture.monitoringState === "upcoming" ||
+      fixture.monitoringState === "prematch_monitoring" ||
+      fixture.monitoringState === "live" ||
+      fixture.monitoringState === "halftime"
+    ) {
+      const oddsResult = await getTxlineOdds(fixtureId);
+      const scoresResult = await getTxlineScores(fixtureId);
+      odds = Array.isArray(oddsResult) ? oddsResult : ((await safeParse(String(oddsResult))) as any[]);
+      scores = Array.isArray(scoresResult)
+        ? scoresResult
+        : ((await safeParse(String(scoresResult))) as any[]);
     }
   } catch (err) {
+    hadError = true;
+
+    await db
+      .update(fixturesTable)
+      .set({
+        feedHealth: "error",
+        lastIngestError: err instanceof Error ? err.message : "Unknown ingest error",
+      })
+      .where(eq(fixturesTable.fixtureId, fixtureId));
+
     logger.warn({ err, fixtureId }, "txline poller: fixture poll failed");
+    return;
   }
+
+  const totalItems = odds.length + scores.length;
+  const nextEmptyCount = totalItems === 0 ? (fixture.feedEmptyCount ?? 0) + 1 : 0;
+  const nextFeedHealth = computeFeedHealth({
+    status: String(fixture.status),
+    oddsCount: odds.length,
+    scoresCount: scores.length,
+    feedEmptyCount: nextEmptyCount,
+    hadError,
+  });
+
+  if (odds.length > 0) {
+    await upsertEvents(fixtureId, "odds", odds);
+    await insertOddsSnapshots(fixtureId, odds);
+  }
+
+  if (scores.length > 0) {
+    await upsertEvents(fixtureId, "scores", scores);
+  }
+
+  let scoreUpdate: Record<string, number | string> = {};
+
+  if (scores.length > 0) {
+    try {
+      for (const s of scores) {
+        const score = s as Record<string, unknown>;
+        const home =
+          typeof score["HomeScore"] === "number"
+            ? score["HomeScore"]
+            : typeof score["homeScore"] === "number"
+              ? score["homeScore"]
+              : null;
+        const away =
+          typeof score["AwayScore"] === "number"
+            ? score["AwayScore"]
+            : typeof score["awayScore"] === "number"
+              ? score["awayScore"]
+              : null;
+        const minute =
+          typeof score["Minute"] === "number"
+            ? score["Minute"]
+            : typeof score["minute"] === "number"
+              ? score["minute"]
+              : null;
+        const providerStatus = mapProviderStatus(score);
+
+        if (home != null) scoreUpdate.homeScore = home as number;
+        if (away != null) scoreUpdate.awayScore = away as number;
+        if (minute != null) scoreUpdate.minutePlayed = minute as number;
+        if (providerStatus !== "pre") scoreUpdate.status = providerStatus;
+      }
+    } catch {
+      // ignore per-item score parsing errors
+    }
+  }
+
+  const effectiveStatus =
+    typeof scoreUpdate.status === "string" ? scoreUpdate.status : String(fixture.status);
+  const nextMonitoringState = computeMonitoringState({
+    providerStatus: effectiveStatus,
+    kickoffTs: Number(fixture.kickoffTs),
+    nowTs: now.getTime(),
+    feedEmptyCount: nextEmptyCount,
+  });
+
+  await db
+    .update(fixturesTable)
+    .set({
+      ...scoreUpdate,
+      monitoringState: nextMonitoringState,
+      feedHealth: nextFeedHealth,
+      feedEmptyCount: nextEmptyCount,
+      lastSuccessfulIngestAt: now,
+      lastIngestError: null,
+      firstLiveAt:
+        fixture.firstLiveAt ?? (effectiveStatus === "live" ? now : fixture.firstLiveAt),
+      finishedAt:
+        effectiveStatus === "finished" && !fixture.finishedAt ? now : fixture.finishedAt,
+    })
+    .where(eq(fixturesTable.fixtureId, fixtureId));
 }
 
 async function runPollCycle(): Promise<void> {
@@ -121,11 +331,13 @@ async function runPollCycle(): Promise<void> {
     const fixtures = await getTxlineFixtures();
     if (!Array.isArray(fixtures) || fixtures.length === 0) return;
 
-    await Promise.allSettled(fixtures.map((f) => upsertFixtureRecord(f)));
+    for (const fixture of fixtures) {
+      await upsertFixtureRecord(fixture);
+    }
 
-    await Promise.allSettled(
-      fixtures.map((f) => pollFixture(f.FixtureId))
-    );
+    for (const fixture of fixtures) {
+      await pollFixture(Number(fixture.FixtureId));
+    }
   } catch (err) {
     logger.warn({ err }, "txline poller: cycle failed");
   }
