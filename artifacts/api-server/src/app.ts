@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { getTxlinePollerRuntimeState } from "./txline-poller";
 
 const app: Express = express();
 
@@ -28,6 +29,23 @@ app.use(
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get("/health", (_req, res) => {
+  const poller = getTxlinePollerRuntimeState();
+  const nowIso = new Date().toISOString();
+  const now = Date.now();
+  const lastFinished = poller.lastCycleFinishedAt
+    ? new Date(poller.lastCycleFinishedAt).getTime()
+    : null;
+  const stale = lastFinished == null ? false : now - lastFinished > 60_000;
+
+  res.status(200).json({
+    status: stale ? "degraded" : "ok",
+    stale,
+    poller,
+    now: nowIso,
+  });
+});
 
 app.use("/api", router);
 

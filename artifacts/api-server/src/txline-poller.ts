@@ -23,8 +23,30 @@ let pollerActive = false;
 let pollerTimer: ReturnType<typeof setTimeout> | null = null;
 let pollCycleRunning = false;
 
+type PollerRuntimeState = {
+  active: boolean;
+  startedAt: string | null;
+  lastCycleStartedAt: string | null;
+  lastCycleFinishedAt: string | null;
+  lastCycleSucceeded: boolean | null;
+  lastCycleError: string | null;
+};
+
+const pollerRuntimeState: PollerRuntimeState = {
+  active: false,
+  startedAt: null,
+  lastCycleStartedAt: null,
+  lastCycleFinishedAt: null,
+  lastCycleSucceeded: null,
+  lastCycleError: null,
+};
+
 const fixtureCycleCounts = new Map<number, number>();
 const fixtureFinalizationCounts = new Map<number, number>();
+
+export function getTxlinePollerRuntimeState(): PollerRuntimeState {
+  return { ...pollerRuntimeState };
+}
 
 type FixtureLifecycleState =
   | "discovered"
@@ -587,10 +609,15 @@ async function pollFixture(fixtureId: number): Promise<void> {
 async function runPollCycle(): Promise<void> {
   if (pollCycleRunning) return;
   pollCycleRunning = true;
+  pollerRuntimeState.lastCycleStartedAt = new Date().toISOString();
+  pollerRuntimeState.lastCycleError = null;
 
   try {
     const fixtures = await getTxlineFixtures();
-    if (!Array.isArray(fixtures) || fixtures.length === 0) return;
+    if (!Array.isArray(fixtures) || fixtures.length === 0) {
+      pollerRuntimeState.lastCycleSucceeded = true;
+      return;
+    }
 
     for (const fixture of fixtures) {
       await upsertFixtureRecord(fixture);
@@ -599,9 +626,15 @@ async function runPollCycle(): Promise<void> {
     for (const fixture of fixtures) {
       await pollFixture(Number(fixture.FixtureId));
     }
+    pollerRuntimeState.lastCycleSucceeded = true;
   } catch (err) {
+    pollerRuntimeState.lastCycleSucceeded = false;
+    pollerRuntimeState.lastCycleError =
+      err instanceof Error ? err.message : "Unknown poll cycle error";
     logger.warn({ err }, "txline poller: cycle failed");
+    throw err;
   } finally {
+    pollerRuntimeState.lastCycleFinishedAt = new Date().toISOString();
     pollCycleRunning = false;
   }
 }
@@ -610,25 +643,46 @@ export function startTxlinePoller(): void {
   if (pollerActive) return;
   if (!process.env.TXLINE_API_TOKEN) {
     logger.warn("TXLINE_API_TOKEN not set — TxLINE DVR poller skipped");
+    pollerRuntimeState.active = false;
+    pollerRuntimeState.lastCycleError = "TXLINE_API_TOKEN not set";
     return;
   }
 
   pollerActive = true;
-  logger.info("TxLINE DVR poller started");
+  pollerRuntimeState.active = true;
+  pollerRuntimeState.startedAt = new Date().toISOString();
+  pollerRuntimeState.lastCycleError = null;
+  logger.info(
+    "TxLINE DVR poller started after server listen; runtime liveness is available at /health and host sleep will still pause background ingestion",
+  );
 
   const schedule = () => {
     pollerTimer = setTimeout(async () => {
       if (!pollerActive) return;
-      await runPollCycle();
-      if (pollerActive) schedule();
+      try {
+        await runPollCycle();
+      } catch {
+        // The cycle logger and runtime state already capture the failure.
+      } finally {
+        if (pollerActive) schedule();
+      }
     }, BASE_POLL_INTERVAL_MS);
   };
 
-  runPollCycle().then(schedule);
+  void (async () => {
+    try {
+      await runPollCycle();
+    } catch {
+      // The cycle logger and runtime state already capture the failure.
+    } finally {
+      if (pollerActive) schedule();
+    }
+  })();
 }
 
 export function stopTxlinePoller(): void {
   pollerActive = false;
+  pollerRuntimeState.active = false;
   if (pollerTimer) {
     clearTimeout(pollerTimer);
     pollerTimer = null;
