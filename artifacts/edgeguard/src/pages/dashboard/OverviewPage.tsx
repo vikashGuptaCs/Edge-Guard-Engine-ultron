@@ -216,7 +216,12 @@ export default function OverviewPage() {
   );
   const nextUpcomingFixture = prematchFixtures[0] ?? null;
 
-  const hasFeedDegradation = degradedFixtures.length > 0;
+  // Only trigger degraded mode if actively-monitored fixtures (live/prematch) have feed issues
+  const activeDegradedFixtures = React.useMemo(
+    () => [...liveFixtures, ...prematchFixtures].filter(isFeedDegraded),
+    [liveFixtures, prematchFixtures],
+  );
+  const hasFeedDegradation = activeDegradedFixtures.length > 0;
   const dashboardMode = deriveDashboardMode({
     liveFixtures,
     upcomingFixtures: prematchFixtures,
@@ -487,7 +492,7 @@ export default function OverviewPage() {
 
           <OverviewSection title="Data Freshness">
             <div className="grid gap-3 md:grid-cols-2">
-              {degradedFixtures.slice(0, 8).map((fixture) => (
+              {activeDegradedFixtures.slice(0, 8).map((fixture) => (
                 <FixtureSummaryCard
                   key={fixture.fixtureId}
                   fixture={fixture}
