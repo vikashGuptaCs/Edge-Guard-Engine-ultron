@@ -11,6 +11,9 @@ export const alertsTable = pgTable("alerts", {
   narration: text("narration"),
   action: text("action").notNull(),
   fired: boolean("fired").notNull().default(false),
+  lifecycleState: text("lifecycle_state"),
+  feedHealth: text("feed_health"),
+  confidenceBand: text("confidence_band"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
