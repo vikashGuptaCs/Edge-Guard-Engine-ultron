@@ -3,6 +3,30 @@ import { logger } from "./lib/logger";
 const TXLINE_ORIGIN = "https://txline-dev.txodds.com";
 const TXLINE_API_BASE = `${TXLINE_ORIGIN}/api`;
 
+type TxlinePayloadKind = "array" | "object" | "empty" | "invalid_json";
+
+type TxlineResultCategory =
+  | "success"
+  | "empty_valid"
+  | "auth_error"
+  | "transport_error"
+  | "endpoint_error"
+  | "parse_error";
+
+export interface TxlineRequestMeta {
+  endpoint: string;
+  statusCode: number;
+  receivedAt: string;
+  payloadKind: TxlinePayloadKind;
+  itemCount: number;
+  category: TxlineResultCategory;
+}
+
+export interface TxlineArrayResult<T> {
+  data: T[];
+  meta: TxlineRequestMeta;
+}
+
 interface TxlineFixture {
   FixtureId: number;
   Participant1: string;
@@ -39,6 +63,95 @@ interface TxlineScoreEntry {
 let cachedJwt: string | null = null;
 let jwtExpiresAt = 0;
 
+function normalizeTxlineArrayPayload<T>(
+  rawText: string,
+  endpoint: string,
+  statusCode: number
+): TxlineArrayResult<T> {
+  const receivedAt = new Date().toISOString();
+  const text = rawText.trim();
+
+  if (!text || text === '""') {
+    return {
+      data: [],
+      meta: {
+        endpoint,
+        statusCode,
+        receivedAt,
+        payloadKind: "empty",
+        itemCount: 0,
+        category: "empty_valid",
+      },
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(text);
+
+    if (Array.isArray(parsed)) {
+      return {
+        data: parsed as T[],
+        meta: {
+          endpoint,
+          statusCode,
+          receivedAt,
+          payloadKind: "array",
+          itemCount: parsed.length,
+          category: parsed.length === 0 ? "empty_valid" : "success",
+        },
+      };
+    }
+
+    if (parsed == null) {
+      return {
+        data: [],
+        meta: {
+          endpoint,
+          statusCode,
+          receivedAt,
+          payloadKind: "empty",
+          itemCount: 0,
+          category: "empty_valid",
+        },
+      };
+    }
+
+    return {
+      data: [parsed as T],
+      meta: {
+        endpoint,
+        statusCode,
+        receivedAt,
+        payloadKind: "object",
+        itemCount: 1,
+        category: "success",
+      },
+    };
+  } catch {
+    return {
+      data: [],
+      meta: {
+        endpoint,
+        statusCode,
+        receivedAt,
+        payloadKind: "invalid_json",
+        itemCount: 0,
+        category: "parse_error",
+      },
+    };
+  }
+}
+
+function unwrapTxlineArrayResult<T>(result: TxlineArrayResult<T>): T[] {
+  if (result.meta.category === "success" || result.meta.category === "empty_valid") {
+    return result.data;
+  }
+
+  throw new Error(
+    `TxLINE request failed with category ${result.meta.category} at ${result.meta.endpoint}`
+  );
+}
+
 export async function getGuestJwt(): Promise<string> {
   if (cachedJwt && Date.now() < jwtExpiresAt) {
     return cachedJwt;
@@ -59,61 +172,174 @@ export async function getGuestJwt(): Promise<string> {
   return cachedJwt;
 }
 
-async function txlineRequest<T>(path: string, retried = false): Promise<T> {
+async function txlineArrayRequest<T>(path: string, retried = false): Promise<TxlineArrayResult<T>> {
+  const endpoint = path;
   const apiToken = process.env.TXLINE_API_TOKEN;
   if (!apiToken) {
-    throw new Error("TXLINE_API_TOKEN is not configured");
+    logger.warn({ endpoint }, "TxLINE request auth error: TXLINE_API_TOKEN missing");
+    return {
+      data: [],
+      meta: {
+        endpoint,
+        statusCode: 0,
+        receivedAt: new Date().toISOString(),
+        payloadKind: "empty",
+        itemCount: 0,
+        category: "auth_error",
+      },
+    };
   }
 
-  const jwt = await getGuestJwt();
+  let jwt: string;
+  try {
+    jwt = await getGuestJwt();
+  } catch (error) {
+    logger.warn({ err: error, endpoint }, "TxLINE request auth error");
+    return {
+      data: [],
+      meta: {
+        endpoint,
+        statusCode: 0,
+        receivedAt: new Date().toISOString(),
+        payloadKind: "empty",
+        itemCount: 0,
+        category: "auth_error",
+      },
+    };
+  }
 
-  const response = await fetch(`${TXLINE_API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${jwt}`,
-      "X-Api-Token": apiToken,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${TXLINE_API_BASE}${path}`, {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Api-Token": apiToken,
+      },
+    });
+  } catch (error) {
+    logger.warn({ err: error, endpoint }, "TxLINE transport error");
+    return {
+      data: [],
+      meta: {
+        endpoint,
+        statusCode: 0,
+        receivedAt: new Date().toISOString(),
+        payloadKind: "empty",
+        itemCount: 0,
+        category: "transport_error",
+      },
+    };
+  }
 
   if (response.status === 401 && !retried) {
     cachedJwt = null;
-    return txlineRequest<T>(path, true);
-  }
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`TxLINE API error ${response.status}: ${text.slice(0, 200)}`);
+    jwtExpiresAt = 0;
+    logger.warn({ endpoint }, "TxLINE auth retry after 401");
+    return txlineArrayRequest<T>(path, true);
   }
 
   const text = await response.text();
-  if (!text.trim() || text.trim() === '""') return [] as unknown as T;
-  return JSON.parse(text) as T;
+
+  if (!response.ok) {
+    const category = response.status === 401 ? "auth_error" : "endpoint_error";
+    logger.warn(
+      { endpoint, statusCode: response.status, bodyPreview: text.slice(0, 200), category },
+      "TxLINE endpoint error"
+    );
+    return {
+      data: [],
+      meta: {
+        endpoint,
+        statusCode: response.status,
+        receivedAt: new Date().toISOString(),
+        payloadKind: "empty",
+        itemCount: 0,
+        category,
+      },
+    };
+  }
+
+  const result = normalizeTxlineArrayPayload<T>(text, endpoint, response.status);
+
+  if (result.meta.category === "parse_error") {
+    logger.warn(
+      { endpoint, statusCode: response.status, bodyPreview: text.slice(0, 200) },
+      "TxLINE parse error"
+    );
+  } else if (result.meta.category === "empty_valid") {
+    logger.debug({ endpoint, statusCode: response.status }, "TxLINE empty-but-valid response");
+  }
+
+  return result;
 }
 
 export async function testTxlineConnection(): Promise<{
   connected: boolean;
   fixtureCount: number;
+  category?: TxlineResultCategory;
+  statusCode?: number;
   error?: string;
 }> {
-  try {
-    const fixtures = await txlineRequest<TxlineFixture[]>("/fixtures/snapshot");
-    return { connected: true, fixtureCount: Array.isArray(fixtures) ? fixtures.length : 0 };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    logger.warn({ err: message }, "TxLINE connection test failed");
-    return { connected: false, fixtureCount: 0, error: message };
+  const result = await getTxlineFixturesSnapshotResult();
+
+  if (result.meta.category === "success" || result.meta.category === "empty_valid") {
+    return {
+      connected: true,
+      fixtureCount: result.data.length,
+      category: result.meta.category,
+      statusCode: result.meta.statusCode,
+    };
   }
+
+  logger.warn(
+    { category: result.meta.category, statusCode: result.meta.statusCode },
+    "TxLINE connection test failed"
+  );
+  return {
+    connected: false,
+    fixtureCount: 0,
+    category: result.meta.category,
+    statusCode: result.meta.statusCode,
+    error: `TxLINE request failed with category ${result.meta.category}`,
+  };
+}
+
+export async function getTxlineFixturesSnapshotResult(competitionId?: number) {
+  const query = competitionId != null ? `?competitionId=${competitionId}` : "";
+  return txlineArrayRequest<TxlineFixture>(`/fixtures/snapshot${query}`);
+}
+
+export async function getTxlineOddsSnapshotResult(fixtureId: number) {
+  return txlineArrayRequest<TxlineOddsEntry>(`/odds/snapshot/${fixtureId}`);
+}
+
+export async function getTxlineOddsUpdatesResult(fixtureId: number, since?: number) {
+  const query = since != null ? `?since=${since}` : "";
+  return txlineArrayRequest<TxlineOddsEntry>(`/odds/updates/${fixtureId}${query}`);
+}
+
+export async function getTxlineScoresSnapshotResult(fixtureId: number) {
+  return txlineArrayRequest<TxlineScoreEntry>(`/scores/snapshot/${fixtureId}`);
+}
+
+export async function getTxlineScoresUpdatesResult(fixtureId: number, since?: number) {
+  const query = since != null ? `?since=${since}` : "";
+  return txlineArrayRequest<TxlineScoreEntry>(`/scores/updates/${fixtureId}${query}`);
 }
 
 export async function getTxlineFixtures(competitionId?: number): Promise<TxlineFixture[]> {
-  const params = competitionId ? `?competitionId=${competitionId}` : "";
-  return txlineRequest<TxlineFixture[]>(`/fixtures/snapshot${params}`);
+  const result = await getTxlineFixturesSnapshotResult(competitionId);
+  return unwrapTxlineArrayResult(result);
 }
 
 export async function getTxlineOdds(fixtureId: number): Promise<TxlineOddsEntry[]> {
-  return txlineRequest<TxlineOddsEntry[]>(`/odds/snapshot/${fixtureId}`);
+  const result = await getTxlineOddsSnapshotResult(fixtureId);
+  return unwrapTxlineArrayResult(result);
 }
 
 export async function getTxlineScores(fixtureId: number): Promise<TxlineScoreEntry[]> {
-  return txlineRequest<TxlineScoreEntry[]>(`/scores/snapshot/${fixtureId}`);
+  const result = await getTxlineScoresSnapshotResult(fixtureId);
+  return unwrapTxlineArrayResult(result);
 }

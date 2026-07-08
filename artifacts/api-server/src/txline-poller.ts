@@ -223,6 +223,7 @@ async function pollFixture(fixtureId: number): Promise<void> {
       fixture.monitoringState === "live" ||
       fixture.monitoringState === "halftime"
     ) {
+      // TODO(phase-3): switch live fixtures to explicit updates-result methods with snapshot fallback.
       const oddsResult = await getTxlineOdds(fixtureId);
       const scoresResult = await getTxlineScores(fixtureId);
       odds = Array.isArray(oddsResult) ? oddsResult : ((await safeParse(String(oddsResult))) as any[]);
