@@ -13,6 +13,16 @@ export interface DashboardSummary {
   vetoedToday: number;
   avgEdgeScore: number;
   feedLatencyMs: number;
+  /** @nullable */
+  monitoringState: string | null;
+  /** @nullable */
+  feedHealth: string | null;
+  /** @nullable */
+  lastSuccessfulIngestAt: Date | null;
+  /** @nullable */
+  dataFreshnessMs: number | null;
+  isLive: boolean;
+  isFinished: boolean;
   activeAgents: number;
   alertsPerHour: number;
 }

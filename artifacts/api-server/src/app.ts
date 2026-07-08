@@ -38,9 +38,14 @@ app.get("/health", (_req, res) => {
     ? new Date(poller.lastCycleFinishedAt).getTime()
     : null;
   const stale = lastFinished == null ? false : now - lastFinished > 60_000;
+  const degraded =
+    stale ||
+    !poller.active ||
+    poller.lastCycleSucceeded === false ||
+    poller.lastCycleError !== null;
 
   res.status(200).json({
-    status: stale ? "degraded" : "ok",
+    status: degraded ? "degraded" : "ok",
     stale,
     poller,
     now: nowIso,

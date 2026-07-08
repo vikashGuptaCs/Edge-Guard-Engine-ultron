@@ -20,8 +20,6 @@ export interface Fixture {
   awayTeam: string;
   kickoffTs: number;
   status: string;
-  monitoringState: string;
-  feedHealth: string;
   /** @nullable */
   homeScore?: number | null;
   /** @nullable */
@@ -32,8 +30,35 @@ export interface Fixture {
   currentEdgeScore?: number | null;
   /** @nullable */
   feedLatencyMs?: number | null;
-  /** @nullable */
+  /**
+     * Current lifecycle monitoring state for the fixture.
+     * @nullable
+     */
+  monitoringState?: string | null;
+  /**
+     * Current provider/feed health for the fixture.
+     * @nullable
+     */
+  feedHealth?: string | null;
+  /**
+     * Timestamp of the last successful ingest affecting this fixture.
+     * @nullable
+     */
   lastSuccessfulIngestAt?: string | null;
+  /**
+     * Milliseconds until kickoff for non-live fixtures.
+     * @nullable
+     */
+  countdownMs?: number | null;
+  /** Whether the fixture is currently live. */
+  isLive: boolean;
+  /** Whether the fixture is finished. */
+  isFinished: boolean;
+  /**
+     * Milliseconds since the last successful ingest.
+     * @nullable
+     */
+  dataFreshnessMs?: number | null;
   /** @nullable */
   finishedAt?: string | null;
   /** @nullable */
@@ -126,6 +151,16 @@ export interface DashboardSummary {
   vetoedToday: number;
   avgEdgeScore: number;
   feedLatencyMs: number;
+  /** @nullable */
+  monitoringState: string | null;
+  /** @nullable */
+  feedHealth: string | null;
+  /** @nullable */
+  lastSuccessfulIngestAt: string | null;
+  /** @nullable */
+  dataFreshnessMs: number | null;
+  isLive: boolean;
+  isFinished: boolean;
   activeAgents: number;
   alertsPerHour: number;
 }
@@ -142,6 +177,18 @@ export interface LiveTickerItem {
   latencyMs: number;
   /** @nullable */
   topSignal?: string | null;
+  /** @nullable */
+  monitoringState: string | null;
+  /** @nullable */
+  feedHealth: string | null;
+  /** @nullable */
+  lastSuccessfulIngestAt: string | null;
+  /** @nullable */
+  countdownMs: number | null;
+  isLive: boolean;
+  isFinished: boolean;
+  /** @nullable */
+  dataFreshnessMs: number | null;
 }
 
 export interface RiskGridItem {
@@ -154,6 +201,18 @@ export interface RiskGridItem {
   sentinelStatus: string;
   edgeScore: number;
   recommendation: string;
+  /** @nullable */
+  monitoringState: string | null;
+  /** @nullable */
+  feedHealth: string | null;
+  /** @nullable */
+  lastSuccessfulIngestAt: string | null;
+  /** @nullable */
+  countdownMs: number | null;
+  isLive: boolean;
+  isFinished: boolean;
+  /** @nullable */
+  dataFreshnessMs: number | null;
 }
 
 export type ScoreEventMeta = { [key: string]: unknown };
@@ -264,3 +323,4 @@ limit?: number;
 };
 
 export type GetTxlineOdds200Item = { [key: string]: unknown };
+

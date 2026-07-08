@@ -18,4 +18,16 @@ export interface LiveTickerItem {
   latencyMs: number;
   /** @nullable */
   topSignal?: string | null;
+  /** @nullable */
+  monitoringState: string | null;
+  /** @nullable */
+  feedHealth: string | null;
+  /** @nullable */
+  lastSuccessfulIngestAt: Date | null;
+  /** @nullable */
+  countdownMs: number | null;
+  isLive: boolean;
+  isFinished: boolean;
+  /** @nullable */
+  dataFreshnessMs: number | null;
 }
