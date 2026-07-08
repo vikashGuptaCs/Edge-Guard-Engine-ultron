@@ -36,10 +36,8 @@ export function RiskAgentProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const ids = fixtures.map((f) => f.fixtureId);
-    if (ids.length > 0) {
-      setMonitoredCount(ids.length);
-      updateFixtures(ids);
-    }
+    setMonitoredCount(ids.length);
+    updateFixtures(ids);
   }, [fixtures, updateFixtures]);
 
   const getAgentSignal = (

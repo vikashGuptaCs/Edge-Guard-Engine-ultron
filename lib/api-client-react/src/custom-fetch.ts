@@ -18,6 +18,19 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 
+function isApiRequestUrl(url: string): boolean {
+  try {
+    if (url.startsWith("/")) {
+      return url === "/api" || url.startsWith("/api/");
+    }
+
+    const parsed = new URL(url, "http://localhost");
+    return parsed.pathname === "/api" || parsed.pathname.startsWith("/api/");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Set a base URL that is prepended to every relative request URL
  * (i.e. paths that start with `/`).
@@ -300,7 +313,11 @@ async function parseSuccessBody(
   }
 
   const effectiveType =
-    responseType === "auto" ? inferResponseType(response) : responseType;
+    responseType === "auto"
+      ? isApiRequestUrl(requestInfo.url)
+        ? "json"
+        : inferResponseType(response)
+      : responseType;
 
   switch (effectiveType) {
     case "json":
@@ -359,6 +376,10 @@ export async function customFetch<T = unknown>(
   }
 
   const requestInfo = { method, url: resolveUrl(input) };
+
+  if (isApiRequestUrl(requestInfo.url) && !headers.has("accept")) {
+    headers.set("accept", DEFAULT_JSON_ACCEPT);
+  }
 
   const response = await fetch(input, { ...init, method, headers });
 
