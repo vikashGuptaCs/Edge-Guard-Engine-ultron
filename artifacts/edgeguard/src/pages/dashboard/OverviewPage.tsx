@@ -34,7 +34,12 @@ function getFixtureMonitoringState(fixture: DashboardFixture): string {
 
 function isLiveFixture(fixture: DashboardFixture) {
   const state = getFixtureMonitoringState(fixture);
-  return state === "live" || state === "halftime" || fixture.status.toLowerCase() === "live";
+  return (
+    fixture.isLive === true ||
+    state === "live" ||
+    state === "halftime" ||
+    fixture.status.toLowerCase() === "live"
+  );
 }
 
 function isPrematchFixture(fixture: DashboardFixture) {
@@ -50,7 +55,13 @@ function isPrematchFixture(fixture: DashboardFixture) {
 function isFinishedFixture(fixture: DashboardFixture) {
   const state = getFixtureMonitoringState(fixture);
   const status = fixture.status.toLowerCase();
-  return state === "finished" || state === "archived" || status === "finished" || status === "ft";
+  return (
+    fixture.isFinished === true ||
+    state === "finished" ||
+    state === "archived" ||
+    status === "finished" ||
+    status === "ft"
+  );
 }
 
 function isFeedDegraded(fixture: DashboardFixture) {
@@ -203,6 +214,7 @@ export default function OverviewPage() {
     () => fixtures.filter(isFeedDegraded).sort((a, b) => a.kickoffTs - b.kickoffTs),
     [fixtures],
   );
+  const nextUpcomingFixture = prematchFixtures[0] ?? null;
 
   const hasFeedDegradation = degradedFixtures.length > 0;
   const dashboardMode = deriveDashboardMode({
@@ -284,6 +296,21 @@ export default function OverviewPage() {
               <RiskGrid />
             </CardContent>
           </Card>
+
+          {nextUpcomingFixture ? (
+            <OverviewSection title="Next Upcoming Match">
+              <FixtureSummaryCard
+                fixture={nextUpcomingFixture}
+                subtitle={`Kickoff ${formatKickoffLabel(nextUpcomingFixture.kickoffTs)}`}
+                trailing={
+                  <div className="flex flex-col gap-1 text-xs font-mono text-muted-foreground">
+                    <span>Next monitored fixture scheduled after the current live match.</span>
+                    <span>{formatFreshnessLabel(nextUpcomingFixture.lastSuccessfulIngestAt)}</span>
+                  </div>
+                }
+              />
+            </OverviewSection>
+          ) : null}
         </>
       ) : null}
 
