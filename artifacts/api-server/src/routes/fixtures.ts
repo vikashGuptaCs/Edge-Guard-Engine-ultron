@@ -1,9 +1,56 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { fixturesTable, oddsSnapshotsTable, agentSignalsTable, alertsTable, scoreEventsTable } from "@workspace/db";
-import { eq, desc, and, gte } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 const router = Router();
+
+function computeCountdownMs(kickoffTs?: number | null) {
+  if (!kickoffTs) return null;
+  return Math.max(0, kickoffTs - Date.now());
+}
+
+function computeDataFreshnessMs(lastSuccessfulIngestAt?: string | Date | null) {
+  if (!lastSuccessfulIngestAt) return null;
+  return Math.max(0, Date.now() - new Date(lastSuccessfulIngestAt).getTime());
+}
+
+function isLiveMonitoringState(monitoringState?: string | null) {
+  return monitoringState === "live" || monitoringState === "halftime";
+}
+
+function isFinishedMonitoringState(monitoringState?: string | null) {
+  return monitoringState === "finished" || monitoringState === "archived";
+}
+
+function mapFixtureResponse(fixture: typeof fixturesTable.$inferSelect) {
+  const isLive = isLiveMonitoringState(fixture.monitoringState);
+  const isFinished = isFinishedMonitoringState(fixture.monitoringState);
+
+  return {
+    fixtureId: fixture.fixtureId,
+    competition: fixture.competition,
+    homeTeam: fixture.homeTeam,
+    awayTeam: fixture.awayTeam,
+    kickoffTs: fixture.kickoffTs,
+    status: fixture.status,
+    homeScore: fixture.homeScore,
+    awayScore: fixture.awayScore,
+    minutePlayed: fixture.minutePlayed,
+    currentEdgeScore: fixture.currentEdgeScore,
+    feedLatencyMs: fixture.feedLatencyMs,
+    monitoringState: fixture.monitoringState ?? null,
+    feedHealth: fixture.feedHealth ?? null,
+    lastSuccessfulIngestAt: fixture.lastSuccessfulIngestAt?.toISOString() ?? null,
+    countdownMs: isLive || isFinished ? null : computeCountdownMs(Number(fixture.kickoffTs)),
+    isLive,
+    isFinished,
+    dataFreshnessMs: computeDataFreshnessMs(fixture.lastSuccessfulIngestAt),
+    finishedAt: fixture.finishedAt?.toISOString() ?? null,
+    archivedAt: fixture.archivedAt?.toISOString() ?? null,
+    lastIngestError: fixture.lastIngestError,
+  };
+}
 
 router.get("/fixtures", async (req, res) => {
   try {
@@ -14,25 +61,7 @@ router.get("/fixtures", async (req, res) => {
     }
     const lim = limit ? parseInt(limit as string) : 50;
     const fixtures = await query.orderBy(desc(fixturesTable.kickoffTs)).limit(lim);
-    res.json(fixtures.map(f => ({
-      fixtureId: f.fixtureId,
-      competition: f.competition,
-      homeTeam: f.homeTeam,
-      awayTeam: f.awayTeam,
-      kickoffTs: f.kickoffTs,
-      status: f.status,
-      homeScore: f.homeScore,
-      awayScore: f.awayScore,
-      minutePlayed: f.minutePlayed,
-      currentEdgeScore: f.currentEdgeScore,
-      feedLatencyMs: f.feedLatencyMs,
-      monitoringState: f.monitoringState,
-      feedHealth: f.feedHealth,
-      lastSuccessfulIngestAt: f.lastSuccessfulIngestAt?.toISOString() ?? null,
-      finishedAt: f.finishedAt?.toISOString() ?? null,
-      archivedAt: f.archivedAt?.toISOString() ?? null,
-      lastIngestError: f.lastIngestError,
-    })));
+    res.json(fixtures.map(mapFixtureResponse));
     return;
   } catch (err) {
     req.log.error({ err }, "listFixtures error");
@@ -43,31 +72,13 @@ router.get("/fixtures", async (req, res) => {
 
 router.get("/fixtures/:fixtureId", async (req, res) => {
   try {
-    const fixtureId = parseInt(req.params.fixtureId);
+    const fixtureId = parseInt(req.params.fixtureId, 10);
     const [fixture] = await db.select().from(fixturesTable).where(eq(fixturesTable.fixtureId, fixtureId));
     if (!fixture) {
       res.status(404).json({ error: "Fixture not found" });
       return;
     }
-    res.json({
-      fixtureId: fixture.fixtureId,
-      competition: fixture.competition,
-      homeTeam: fixture.homeTeam,
-      awayTeam: fixture.awayTeam,
-      kickoffTs: fixture.kickoffTs,
-      status: fixture.status,
-      homeScore: fixture.homeScore,
-      awayScore: fixture.awayScore,
-      minutePlayed: fixture.minutePlayed,
-      currentEdgeScore: fixture.currentEdgeScore,
-      feedLatencyMs: fixture.feedLatencyMs,
-      monitoringState: fixture.monitoringState,
-      feedHealth: fixture.feedHealth,
-      lastSuccessfulIngestAt: fixture.lastSuccessfulIngestAt?.toISOString() ?? null,
-      finishedAt: fixture.finishedAt?.toISOString() ?? null,
-      archivedAt: fixture.archivedAt?.toISOString() ?? null,
-      lastIngestError: fixture.lastIngestError,
-    });
+    res.json(mapFixtureResponse(fixture));
     return;
   } catch (err) {
     req.log.error({ err }, "getFixture error");

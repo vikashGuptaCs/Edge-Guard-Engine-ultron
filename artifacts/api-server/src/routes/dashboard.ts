@@ -1,19 +1,34 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { fixturesTable, alertsTable, agentSignalsTable, oddsSnapshotsTable, riskMetricsTable } from "@workspace/db";
-import { eq, desc, gte, count, avg } from "drizzle-orm";
+import { fixturesTable, alertsTable, agentSignalsTable, oddsSnapshotsTable } from "@workspace/db";
+import { desc, count, eq, inArray } from "drizzle-orm";
 
 const router = Router();
 
+function computeCountdownMs(kickoffTs?: number | null) {
+  if (!kickoffTs) return null;
+  return Math.max(0, kickoffTs - Date.now());
+}
+
+function computeDataFreshnessMs(lastSuccessfulIngestAt?: string | Date | null) {
+  if (!lastSuccessfulIngestAt) return null;
+  return Math.max(0, Date.now() - new Date(lastSuccessfulIngestAt).getTime());
+}
+
+function isLiveMonitoringState(monitoringState?: string | null) {
+  return monitoringState === "live" || monitoringState === "halftime";
+}
+
+function isFinishedMonitoringState(monitoringState?: string | null) {
+  return monitoringState === "finished" || monitoringState === "archived";
+}
+
 router.get("/dashboard/summary", async (req, res) => {
   try {
-    const now = Date.now();
-    const oneDayAgo = now - 86400000;
-
     const [activeFixtures] = await db
       .select({ count: count() })
       .from(fixturesTable)
-      .where(eq(fixturesTable.status, "live"));
+      .where(inArray(fixturesTable.monitoringState, ["live", "halftime"]));
 
     const [totalAlerts] = await db
       .select({ count: count() })
@@ -32,7 +47,7 @@ router.get("/dashboard/summary", async (req, res) => {
     const latestFixture = await db
       .select()
       .from(fixturesTable)
-      .where(eq(fixturesTable.status, "live"))
+      .where(inArray(fixturesTable.monitoringState, ["live", "halftime"]))
       .limit(1);
 
     res.json({
@@ -42,6 +57,12 @@ router.get("/dashboard/summary", async (req, res) => {
       vetoedToday: Number(vetoedToday?.count ?? 0),
       avgEdgeScore: 73.4,
       feedLatencyMs: latestFixture[0]?.feedLatencyMs ?? 42,
+      monitoringState: latestFixture[0]?.monitoringState ?? null,
+      feedHealth: latestFixture[0]?.feedHealth ?? null,
+      lastSuccessfulIngestAt: latestFixture[0]?.lastSuccessfulIngestAt?.toISOString() ?? null,
+      dataFreshnessMs: computeDataFreshnessMs(latestFixture[0]?.lastSuccessfulIngestAt),
+      isLive: isLiveMonitoringState(latestFixture[0]?.monitoringState),
+      isFinished: isFinishedMonitoringState(latestFixture[0]?.monitoringState),
       activeAgents: 5,
       alertsPerHour: 3.2,
     });
@@ -56,7 +77,7 @@ router.get("/dashboard/live-ticker", async (req, res) => {
     const liveFixtures = await db
       .select()
       .from(fixturesTable)
-      .where(eq(fixturesTable.status, "live"))
+      .where(inArray(fixturesTable.monitoringState, ["live", "halftime"]))
       .orderBy(desc(fixturesTable.kickoffTs))
       .limit(10);
 
@@ -70,6 +91,8 @@ router.get("/dashboard/live-ticker", async (req, res) => {
 
       const edgeScore = f.currentEdgeScore ?? Math.floor(Math.random() * 40) + 50;
       const action = edgeScore >= 80 ? "EXECUTE" : edgeScore >= 60 ? "MONITORING" : "HOLD";
+      const isLive = isLiveMonitoringState(f.monitoringState);
+      const isFinished = isFinishedMonitoringState(f.monitoringState);
 
       return {
         fixtureId: f.fixtureId,
@@ -82,6 +105,13 @@ router.get("/dashboard/live-ticker", async (req, res) => {
         action,
         latencyMs: f.feedLatencyMs ?? 42,
         topSignal: latestSignal?.signalType ?? null,
+        monitoringState: f.monitoringState ?? null,
+        feedHealth: f.feedHealth ?? null,
+        lastSuccessfulIngestAt: f.lastSuccessfulIngestAt?.toISOString() ?? null,
+        countdownMs: isLive || isFinished ? null : computeCountdownMs(Number(f.kickoffTs)),
+        isLive,
+        isFinished,
+        dataFreshnessMs: computeDataFreshnessMs(f.lastSuccessfulIngestAt),
       };
     }));
 
@@ -97,7 +127,7 @@ router.get("/dashboard/risk-grid", async (req, res) => {
     const liveFixtures = await db
       .select()
       .from(fixturesTable)
-      .where(eq(fixturesTable.status, "live"))
+      .where(inArray(fixturesTable.monitoringState, ["live", "halftime"]))
       .orderBy(desc(fixturesTable.kickoffTs))
       .limit(20);
 
@@ -119,6 +149,8 @@ router.get("/dashboard/risk-grid", async (req, res) => {
       const spread = latestOdds ? parseFloat(latestOdds.spread) : 0.04;
       const latencyMs = f.feedLatencyMs ?? 42;
       const edgeScore = f.currentEdgeScore ?? 70;
+      const isLive = isLiveMonitoringState(f.monitoringState);
+      const isFinished = isFinishedMonitoringState(f.monitoringState);
 
       const volatilityRisk = spread > 0.12 ? "CRITICAL" : spread > 0.08 ? "HIGH" : spread > 0.04 ? "MEDIUM" : "LOW";
       const sentinelStatus = latencyMs > 10000 ? "CIRCUIT_BREAKER" : latentSignalCheck(latestSignal?.signalType) ? "TOXIC_FLOW" : "CLEAR";
@@ -134,6 +166,13 @@ router.get("/dashboard/risk-grid", async (req, res) => {
         sentinelStatus,
         edgeScore,
         recommendation,
+        monitoringState: f.monitoringState ?? null,
+        feedHealth: f.feedHealth ?? null,
+        lastSuccessfulIngestAt: f.lastSuccessfulIngestAt?.toISOString() ?? null,
+        countdownMs: isLive || isFinished ? null : computeCountdownMs(Number(f.kickoffTs)),
+        isLive,
+        isFinished,
+        dataFreshnessMs: computeDataFreshnessMs(f.lastSuccessfulIngestAt),
       };
     }));
 

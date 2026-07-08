@@ -529,6 +529,36 @@ components:
           type: ["integer", "null"]
         feedLatencyMs:
           type: ["integer", "null"]
+        monitoringState:
+          type: ["string", "null"]
+          description: Current lifecycle monitoring state for the fixture.
+        feedHealth:
+          type: ["string", "null"]
+          description: Current provider/feed health for the fixture.
+        lastSuccessfulIngestAt:
+          type: ["string", "null"]
+          format: date-time
+          description: Timestamp of the last successful ingest affecting this fixture.
+        countdownMs:
+          type: ["integer", "null"]
+          description: Milliseconds until kickoff for non-live fixtures.
+        isLive:
+          type: boolean
+          description: Whether the fixture is currently live.
+        isFinished:
+          type: boolean
+          description: Whether the fixture is finished.
+        dataFreshnessMs:
+          type: ["integer", "null"]
+          description: Milliseconds since the last successful ingest.
+        finishedAt:
+          type: ["string", "null"]
+          format: date-time
+        archivedAt:
+          type: ["string", "null"]
+          format: date-time
+        lastIngestError:
+          type: ["string", "null"]
       required:
         - fixtureId
         - competition
@@ -536,6 +566,8 @@ components:
         - awayTeam
         - kickoffTs
         - status
+        - isLive
+        - isFinished
 
     OddsSnapshot:
       type: object
@@ -707,6 +739,19 @@ components:
           type: number
         feedLatencyMs:
           type: integer
+        monitoringState:
+          type: ["string", "null"]
+        feedHealth:
+          type: ["string", "null"]
+        lastSuccessfulIngestAt:
+          type: ["string", "null"]
+          format: date-time
+        dataFreshnessMs:
+          type: ["integer", "null"]
+        isLive:
+          type: boolean
+        isFinished:
+          type: boolean
         activeAgents:
           type: integer
         alertsPerHour:
@@ -718,6 +763,12 @@ components:
         - vetoedToday
         - avgEdgeScore
         - feedLatencyMs
+        - monitoringState
+        - feedHealth
+        - lastSuccessfulIngestAt
+        - dataFreshnessMs
+        - isLive
+        - isFinished
         - activeAgents
         - alertsPerHour
 
@@ -744,6 +795,21 @@ components:
           type: integer
         topSignal:
           type: ["string", "null"]
+        monitoringState:
+          type: ["string", "null"]
+        feedHealth:
+          type: ["string", "null"]
+        lastSuccessfulIngestAt:
+          type: ["string", "null"]
+          format: date-time
+        countdownMs:
+          type: ["integer", "null"]
+        isLive:
+          type: boolean
+        isFinished:
+          type: boolean
+        dataFreshnessMs:
+          type: ["integer", "null"]
       required:
         - fixtureId
         - homeTeam
@@ -754,6 +820,13 @@ components:
         - edgeScore
         - action
         - latencyMs
+        - monitoringState
+        - feedHealth
+        - lastSuccessfulIngestAt
+        - countdownMs
+        - isLive
+        - isFinished
+        - dataFreshnessMs
 
     RiskGridItem:
       type: object
@@ -776,6 +849,21 @@ components:
           type: integer
         recommendation:
           type: string
+        monitoringState:
+          type: ["string", "null"]
+        feedHealth:
+          type: ["string", "null"]
+        lastSuccessfulIngestAt:
+          type: ["string", "null"]
+          format: date-time
+        countdownMs:
+          type: ["integer", "null"]
+        isLive:
+          type: boolean
+        isFinished:
+          type: boolean
+        dataFreshnessMs:
+          type: ["integer", "null"]
       required:
         - fixtureId
         - homeTeam
@@ -786,6 +874,13 @@ components:
         - sentinelStatus
         - edgeScore
         - recommendation
+        - monitoringState
+        - feedHealth
+        - lastSuccessfulIngestAt
+        - countdownMs
+        - isLive
+        - isFinished
+        - dataFreshnessMs
 
     FixtureTimeline:
       type: object
