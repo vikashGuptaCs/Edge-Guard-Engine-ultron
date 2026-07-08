@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, useLocation } from "wouter";
+import React from "react";
+import { useLocation } from "wouter";
 import { useWallet } from "@/hooks/use-wallet";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert, ArrowRight, Activity, Zap, Lock } from "lucide-react";
@@ -8,7 +8,13 @@ export default function LandingPage() {
   const [, setLocation] = useLocation();
   const { connected } = useWallet();
 
-  const handleEnterDashboard = () => setLocation("/dashboard");
+  const handleConnect = () => {
+    if (connected) {
+      setLocation("/dashboard");
+    } else {
+      setLocation("/auth");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center relative overflow-hidden">
@@ -44,22 +50,12 @@ export default function LandingPage() {
 
         <Button 
           size="lg" 
-          onClick={handleEnterDashboard}
+          onClick={handleConnect}
           className="text-lg px-8 h-14 font-mono font-bold tracking-widest group shadow-[0_0_20px_rgba(var(--primary),0.4)] hover:shadow-[0_0_40px_rgba(var(--primary),0.6)] transition-all"
         >
-          ENTER DASHBOARD
+          {connected ? "ENTER DASHBOARD" : "CONNECT TERMINAL"}
           <ArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </Button>
-
-        {!connected && (
-          <Button
-            variant="ghost"
-            className="mt-4 font-mono text-sm text-muted-foreground hover:text-primary"
-            onClick={() => setLocation("/auth")}
-          >
-            Connect Wallet
-          </Button>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-24 text-left border-t border-border/50 pt-12">
           <div className="space-y-3">
