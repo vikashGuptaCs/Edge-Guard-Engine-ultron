@@ -15,17 +15,19 @@ function computeDataFreshnessMs(lastSuccessfulIngestAt?: string | Date | null) {
   return Math.max(0, Date.now() - new Date(lastSuccessfulIngestAt).getTime());
 }
 
-function isLiveMonitoringState(monitoringState?: string | null) {
-  return monitoringState === "live" || monitoringState === "halftime";
+function isLiveMonitoringState(status?: string | null, monitoringState?: string | null) {
+  const normalizedStatus = status?.toLowerCase();
+  return monitoringState === "live" || monitoringState === "halftime" || normalizedStatus === "live" || normalizedStatus === "halftime";
 }
 
-function isFinishedMonitoringState(monitoringState?: string | null) {
-  return monitoringState === "finished" || monitoringState === "archived";
+function isFinishedMonitoringState(status?: string | null, monitoringState?: string | null) {
+  const normalizedStatus = status?.toLowerCase();
+  return monitoringState === "finished" || monitoringState === "archived" || normalizedStatus === "finished";
 }
 
 function mapFixtureResponse(fixture: typeof fixturesTable.$inferSelect) {
-  const isLive = isLiveMonitoringState(fixture.monitoringState);
-  const isFinished = isFinishedMonitoringState(fixture.monitoringState);
+  const isLive = isLiveMonitoringState(fixture.status, fixture.monitoringState);
+  const isFinished = isFinishedMonitoringState(fixture.status, fixture.monitoringState);
 
   return {
     fixtureId: fixture.fixtureId,

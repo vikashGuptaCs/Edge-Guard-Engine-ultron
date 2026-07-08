@@ -1,18 +1,19 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
+import { getDatabaseUrlErrorMessage, resolveDatabaseUrl } from "./database-url";
 
 const { Pool } = pg;
-const missingDatabaseUrlMessage =
-  "DATABASE_URL must be set. Did you forget to provision a database?";
+const databaseUrl = resolveDatabaseUrl();
+const missingDatabaseUrlMessage = getDatabaseUrlErrorMessage();
 
-export const hasDatabaseConfig = Boolean(process.env.DATABASE_URL);
+export const hasDatabaseConfig = Boolean(databaseUrl);
 export const databaseInitializationError = hasDatabaseConfig
   ? null
   : missingDatabaseUrlMessage;
 
 export const pool = hasDatabaseConfig
-  ? new Pool({ connectionString: process.env.DATABASE_URL })
+  ? new Pool({ connectionString: databaseUrl! })
   : null;
 
 const liveDb = pool ? drizzle(pool, { schema }) : null;

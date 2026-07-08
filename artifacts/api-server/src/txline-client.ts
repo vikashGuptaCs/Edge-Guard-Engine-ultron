@@ -85,24 +85,51 @@ function normalizeTxlineArrayPayload<T>(
     };
   }
 
-  try {
-    const parsed = JSON.parse(text);
+  const candidates = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .flatMap((line) => {
+      if (line.startsWith("data:")) {
+        const payload = line.slice(5).trim();
+        return payload ? [payload] : [];
+      }
 
-    if (Array.isArray(parsed)) {
-      return {
-        data: parsed as T[],
-        meta: {
-          endpoint,
-          statusCode,
-          receivedAt,
-          payloadKind: "array",
-          itemCount: parsed.length,
-          category: parsed.length === 0 ? "empty_valid" : "success",
-        },
-      };
+      if (line.startsWith("{" ) || line.startsWith("[")) {
+        return [line];
+      }
+
+      return [];
+    });
+
+  if (candidates.length === 0) {
+    return {
+      data: [],
+      meta: {
+        endpoint,
+        statusCode,
+        receivedAt,
+        payloadKind: "empty",
+        itemCount: 0,
+        category: "empty_valid",
+      },
+    };
+  }
+
+  try {
+    const parsedItems: unknown[] = [];
+
+    for (const candidate of candidates) {
+      const parsed = JSON.parse(candidate);
+
+      if (Array.isArray(parsed)) {
+        parsedItems.push(...parsed);
+      } else if (parsed != null) {
+        parsedItems.push(parsed);
+      }
     }
 
-    if (parsed == null) {
+    if (parsedItems.length === 0) {
       return {
         data: [],
         meta: {
@@ -117,14 +144,14 @@ function normalizeTxlineArrayPayload<T>(
     }
 
     return {
-      data: [parsed as T],
+      data: parsedItems as T[],
       meta: {
         endpoint,
         statusCode,
         receivedAt,
-        payloadKind: "object",
-        itemCount: 1,
-        category: "success",
+        payloadKind: parsedItems.length === 1 ? "object" : "array",
+        itemCount: parsedItems.length,
+        category: parsedItems.length === 0 ? "empty_valid" : "success",
       },
     };
   } catch {

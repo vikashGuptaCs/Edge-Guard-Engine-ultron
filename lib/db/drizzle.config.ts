@@ -1,14 +1,17 @@
 import { defineConfig } from "drizzle-kit";
 import path from "path";
+import { getDatabaseUrlErrorMessage, resolveDatabaseUrl } from "./src/database-url";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
+const databaseUrl = resolveDatabaseUrl();
+
+if (!databaseUrl) {
+  throw new Error(getDatabaseUrlErrorMessage());
 }
 
 export default defineConfig({
   schema: path.join(__dirname, "./src/schema/index.ts"),
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: databaseUrl,
   },
 });

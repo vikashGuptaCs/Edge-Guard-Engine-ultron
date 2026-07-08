@@ -15,12 +15,14 @@ function computeDataFreshnessMs(lastSuccessfulIngestAt?: string | Date | null) {
   return Math.max(0, Date.now() - new Date(lastSuccessfulIngestAt).getTime());
 }
 
-function isLiveMonitoringState(monitoringState?: string | null) {
-  return monitoringState === "live" || monitoringState === "halftime";
+function isLiveMonitoringState(status?: string | null, monitoringState?: string | null) {
+  const normalizedStatus = status?.toLowerCase();
+  return monitoringState === "live" || monitoringState === "halftime" || normalizedStatus === "live" || normalizedStatus === "halftime";
 }
 
-function isFinishedMonitoringState(monitoringState?: string | null) {
-  return monitoringState === "finished" || monitoringState === "archived";
+function isFinishedMonitoringState(status?: string | null, monitoringState?: string | null) {
+  const normalizedStatus = status?.toLowerCase();
+  return monitoringState === "finished" || monitoringState === "archived" || normalizedStatus === "finished";
 }
 
 router.get("/dashboard/summary", async (req, res) => {
@@ -91,8 +93,8 @@ router.get("/dashboard/live-ticker", async (req, res) => {
 
       const edgeScore = f.currentEdgeScore ?? Math.floor(Math.random() * 40) + 50;
       const action = edgeScore >= 80 ? "EXECUTE" : edgeScore >= 60 ? "MONITORING" : "HOLD";
-      const isLive = isLiveMonitoringState(f.monitoringState);
-      const isFinished = isFinishedMonitoringState(f.monitoringState);
+      const isLive = isLiveMonitoringState(f.status, f.monitoringState);
+      const isFinished = isFinishedMonitoringState(f.status, f.monitoringState);
 
       return {
         fixtureId: f.fixtureId,
@@ -149,8 +151,8 @@ router.get("/dashboard/risk-grid", async (req, res) => {
       const spread = latestOdds ? parseFloat(latestOdds.spread) : 0.04;
       const latencyMs = f.feedLatencyMs ?? 42;
       const edgeScore = f.currentEdgeScore ?? 70;
-      const isLive = isLiveMonitoringState(f.monitoringState);
-      const isFinished = isFinishedMonitoringState(f.monitoringState);
+      const isLive = isLiveMonitoringState(f.status, f.monitoringState);
+      const isFinished = isFinishedMonitoringState(f.status, f.monitoringState);
 
       const volatilityRisk = spread > 0.12 ? "CRITICAL" : spread > 0.08 ? "HIGH" : spread > 0.04 ? "MEDIUM" : "LOW";
       const sentinelStatus = latencyMs > 10000 ? "CIRCUIT_BREAKER" : latentSignalCheck(latestSignal?.signalType) ? "TOXIC_FLOW" : "CLEAR";

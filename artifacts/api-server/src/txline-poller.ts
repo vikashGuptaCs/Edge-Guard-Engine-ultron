@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { txlineEventsTable, fixturesTable, oddsSnapshotsTable } from "@workspace/db";
+import { txlineEventsTable, fixturesTable, oddsSnapshotsTable, scoreEventsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   getTxlineFixtures,
@@ -171,21 +171,77 @@ async function loadSnapshotStyleFixtureData(fixtureId: number) {
   };
 }
 
-function mapProviderStatus(raw: any): string {
+function normalizeProviderStatus(raw: any): string {
   const gameState = raw?.GameState;
 
   if (gameState != null) {
-    const mapped = {
-      0: "pre",
-      1: "live",
-      2: "halftime",
-      3: "finished",
-    } as const;
+    if (typeof gameState === "number") {
+      const mapped = {
+        0: "pre",
+        1: "live",
+        2: "halftime",
+        3: "finished",
+      } as const;
 
-    return mapped[gameState as keyof typeof mapped] ?? `state_${gameState}`;
+      return mapped[gameState as keyof typeof mapped] ?? `state_${gameState}`;
+    }
+
+    if (typeof gameState === "string") {
+      const normalized = gameState.toLowerCase().replace(/^state_/, "").trim();
+      const stringMapped: Record<string, string> = {
+        pre: "pre",
+        scheduled: "pre",
+        upcoming: "pre",
+        notstarted: "pre",
+        not_started: "pre",
+        live: "live",
+        inplay: "live",
+        in_play: "live",
+        halftime: "halftime",
+        half_time: "halftime",
+        finished: "finished",
+        fulltime: "finished",
+        full_time: "finished",
+        ended: "finished",
+      };
+      return stringMapped[normalized] ?? `state_${gameState}`;
+    }
   }
 
-  return raw?.Status ?? "pre";
+  const status = typeof raw?.Status === "string" ? raw.Status : typeof raw?.status === "string" ? raw.status : "";
+  if (status) {
+    const normalized = status.toLowerCase().replace(/^state_/, "").trim();
+    const stringMapped: Record<string, string> = {
+      pre: "pre",
+      scheduled: "pre",
+      upcoming: "pre",
+      notstarted: "pre",
+      not_started: "pre",
+      live: "live",
+      inplay: "live",
+      in_play: "live",
+      halftime: "halftime",
+      half_time: "halftime",
+      finished: "finished",
+      fulltime: "finished",
+      full_time: "finished",
+      ended: "finished",
+    };
+    return stringMapped[normalized] ?? `state_${status}`;
+  }
+
+  return "pre";
+}
+
+function resolveFixtureStatus(candidates: Array<string | null | undefined>): string {
+  const priority = ["live", "halftime", "finished", "pre"] as const;
+
+  for (const status of priority) {
+    const matched = candidates.find((candidate) => candidate === status);
+    if (matched) return status;
+  }
+
+  return "pre";
 }
 
 function computeMonitoringState(args: {
@@ -266,7 +322,7 @@ async function upsertFixtureRecord(f: any): Promise<void> {
     typeof kickoffCandidate === "number"
       ? kickoffCandidate
       : Number(kickoffCandidate) || Date.parse(String(kickoffCandidate)) || 0;
-  const providerStatus = mapProviderStatus(f);
+  const providerStatus = normalizeProviderStatus(f);
   const monitoringState = computeMonitoringState({
     providerStatus,
     kickoffTs,
@@ -275,8 +331,11 @@ async function upsertFixtureRecord(f: any): Promise<void> {
   });
   const fixtureId = Number(f.FixtureId);
   const competition = String(f.Competition ?? f.CompetitionName ?? "Unknown");
-  const homeTeam = String(f.Participant1 ?? "Home");
-  const awayTeam = String(f.Participant2 ?? "Away");
+  const participant1 = String(f.Participant1 ?? "Home");
+  const participant2 = String(f.Participant2 ?? "Away");
+  const isParticipant1Home = f.Participant1IsHome !== false;
+  const homeTeam = isParticipant1Home ? participant1 : participant2;
+  const awayTeam = isParticipant1Home ? participant2 : participant1;
 
   try {
     const [existing] = await db
@@ -360,6 +419,38 @@ async function insertOddsSnapshots(fixtureId: number, odds: any[]) {
       await db.insert(oddsSnapshotsTable).values({ fixtureId, ts, market, selection, stablePrice, spread, volume }).onConflictDoNothing();
       count++;
     } catch (err) {
+      // ignore per-item errors
+    }
+  }
+  return count;
+}
+
+async function insertScoreEvents(fixtureId: number, scores: any[]) {
+  if (!Array.isArray(scores) || scores.length === 0) return 0;
+  let count = 0;
+  for (const score of scores) {
+    try {
+      const rec = score as Record<string, unknown>;
+      const ts = (rec["Ts"] as number | undefined) ?? Date.now();
+      const minute =
+        typeof rec["Minute"] === "number"
+          ? rec["Minute"]
+          : typeof rec["minute"] === "number"
+            ? rec["minute"]
+            : 0;
+      const eventType = String(rec["EventType"] ?? rec["eventType"] ?? rec["Type"] ?? rec["type"] ?? "score_update");
+      const participant = String(rec["Participant"] ?? rec["participant"] ?? rec["Team"] ?? rec["team"] ?? "match");
+
+      await db.insert(scoreEventsTable).values({
+        fixtureId,
+        ts,
+        minute: Number(minute) || 0,
+        eventType,
+        participant,
+        meta: rec,
+      });
+      count++;
+    } catch {
       // ignore per-item errors
     }
   }
@@ -492,7 +583,7 @@ async function pollFixture(fixtureId: number): Promise<void> {
             : typeof score["minute"] === "number"
               ? score["minute"]
               : null;
-        const providerStatus = mapProviderStatus(score);
+        const providerStatus = normalizeProviderStatus(score);
 
         if (home != null) scoreUpdate.homeScore = home as number;
         if (away != null) scoreUpdate.awayScore = away as number;
@@ -504,8 +595,10 @@ async function pollFixture(fixtureId: number): Promise<void> {
     }
   }
 
-  const effectiveStatus =
-    typeof scoreUpdate.status === "string" ? scoreUpdate.status : String(fixture.status);
+  const effectiveStatus = resolveFixtureStatus([
+    typeof scoreUpdate.status === "string" ? scoreUpdate.status : null,
+    fixture.status != null ? String(fixture.status) : null,
+  ]);
 
   const totalItems = odds.length + scores.length;
   const nextEmptyCount = totalItems === 0 ? Number(fixture.feedEmptyCount ?? 0) + 1 : 0;
@@ -523,6 +616,7 @@ async function pollFixture(fixtureId: number): Promise<void> {
   }
 
   if (scores.length > 0) {
+    await insertScoreEvents(fixtureId, scores);
     await upsertEvents(fixtureId, "scores", scores);
   }
   const nextMonitoringState = computeMonitoringState({
