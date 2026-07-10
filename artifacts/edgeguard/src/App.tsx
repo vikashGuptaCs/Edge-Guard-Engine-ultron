@@ -1,9 +1,10 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import React, { useEffect } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/hooks/use-theme";
-import { WalletProvider } from "@/hooks/use-wallet";
+import { WalletProvider, useWallet } from "@/hooks/use-wallet";
 import { useWalletRestore } from "@/hooks/use-wallet-restore";
 import { AutopilotProvider } from "@/hooks/use-autopilot";
 import NotFound from "@/pages/not-found";
@@ -46,13 +47,47 @@ function DashboardRouter() {
   );
 }
 
+function RequireWallet({ children }: { children: React.ReactNode }) {
+  const [, setLocation] = useLocation();
+  const { connected, authState } = useWallet();
+  const isRestoring = authState === "unknown" || authState === "restoring";
+
+  useEffect(() => {
+    if (!connected && !isRestoring) {
+      setLocation("/auth");
+    }
+  }, [connected, isRestoring, setLocation]);
+
+  if (connected) {
+    return <>{children}</>;
+  }
+
+  if (isRestoring) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
+        <div className="font-mono text-sm text-muted-foreground">Restoring wallet session...</div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/auth" component={AuthPage} />
-      <Route path="/dashboard" component={DashboardRouter} />
-      <Route path="/dashboard/*" component={DashboardRouter} />
+      <Route path="/dashboard">
+        <RequireWallet>
+          <DashboardRouter />
+        </RequireWallet>
+      </Route>
+      <Route path="/dashboard/*">
+        <RequireWallet>
+          <DashboardRouter />
+        </RequireWallet>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

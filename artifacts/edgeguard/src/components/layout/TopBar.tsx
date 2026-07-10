@@ -55,6 +55,10 @@ export function TopBar() {
 
   const isConnecting = connectionState === "connecting" || connectionState === "reconnecting";
   const isError = connectionState === "error" || error;
+  const handleDisconnect = async () => {
+    await disconnect();
+    setLocation("/auth");
+  };
 
   return (
     <header
@@ -235,7 +239,7 @@ export function TopBar() {
                 )}
 
                 <DropdownMenuItem
-                  onClick={() => void disconnect()}
+                  onClick={() => void handleDisconnect()}
                   className="text-xs font-mono cursor-pointer text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
                   <LogOut className="w-3 h-3 mr-2" />
@@ -249,7 +253,7 @@ export function TopBar() {
             variant="outline"
             size="sm"
             className="font-mono text-xs transition-all duration-200 hover:bg-primary/10 hover:text-primary"
-            onClick={() => setLocation("/dashboard")}
+            onClick={() => setLocation("/auth")}
           >
             {isConnecting ? (
               <>
