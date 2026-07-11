@@ -71,11 +71,11 @@ export default function MatchesPage() {
               filteredFixtures.map((fixture) => (
                 <TableRow key={fixture.fixtureId} className="hover:bg-muted/30 group">
                   <TableCell>
-                    <Badge variant={fixture.status === 'LIVE' ? 'default' : 'outline'} className={
-                      fixture.status === 'LIVE' ? 'bg-green-500 hover:bg-green-600 text-white' : ''
+                    <Badge variant={fixture.status === 'live' ? 'default' : 'outline'} className={
+                      fixture.status === 'live' ? 'bg-green-500 hover:bg-green-600 text-white' : ''
                     }>
                       {fixture.status}
-                      {fixture.status === 'LIVE' && fixture.minutePlayed && (
+                      {fixture.status === 'live' && fixture.minutePlayed && (
                         <span className="ml-1 opacity-80">{fixture.minutePlayed}'</span>
                       )}
                     </Badge>
