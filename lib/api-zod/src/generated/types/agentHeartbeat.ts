@@ -13,5 +13,5 @@ export interface AgentHeartbeat {
   lastSignalTs?: number | null;
   activeFixtures: number;
   /** @nullable */
-  verdict?: string | null;
+  confidence?: number | null;
 }

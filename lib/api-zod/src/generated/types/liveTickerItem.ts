@@ -13,6 +13,7 @@ export interface LiveTickerItem {
   homeScore: number;
   awayScore: number;
   minutePlayed: number;
+  hasEdgeScore?: boolean;
   edgeScore: number;
   action: string;
   latencyMs: number;

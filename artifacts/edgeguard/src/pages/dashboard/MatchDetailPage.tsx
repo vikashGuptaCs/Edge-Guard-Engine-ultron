@@ -69,15 +69,15 @@ export default function MatchDetailPage() {
     return <div className="p-6 text-center text-muted-foreground font-mono">Fixture data not found.</div>;
   }
 
-  function pickPrimaryMarketOdds(odds: typeof timeline.odds): typeof timeline.odds {
-    const groups = new Map<string, typeof timeline.odds>();
+  function pickPrimaryMarketOdds(odds: any[]): any[] {
+    const groups = new Map<string, any[]>();
     for (const o of odds) {
       const key = `${o.market}:${o.selection}`;
       const arr = groups.get(key) ?? [];
       arr.push(o);
       groups.set(key, arr);
     }
-    let best: typeof timeline.odds = [];
+    let best: any[] = [];
     for (const arr of groups.values()) {
       if (arr.length > best.length) best = arr;
     }

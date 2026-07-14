@@ -857,6 +857,8 @@ components:
           type: integer
         minutePlayed:
           type: integer
+        hasEdgeScore:
+          type: boolean
         edgeScore:
           type: integer
         action:

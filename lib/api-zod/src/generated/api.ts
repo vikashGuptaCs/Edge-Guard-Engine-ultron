@@ -223,7 +223,7 @@ export const GetAgentHeartbeatsResponseItem = zod.object({
   "status": zod.string(),
   "lastSignalTs": zod.number().nullish(),
   "activeFixtures": zod.number(),
-  "verdict": zod.string().nullish()
+  "confidence": zod.number().nullish()
 })
 export const GetAgentHeartbeatsResponse = zod.array(GetAgentHeartbeatsResponseItem)
 
@@ -694,6 +694,7 @@ export const GetLiveTickerResponseItem = zod.object({
   "homeScore": zod.number(),
   "awayScore": zod.number(),
   "minutePlayed": zod.number(),
+  "hasEdgeScore": zod.boolean().optional(),
   "edgeScore": zod.number(),
   "action": zod.string(),
   "latencyMs": zod.number(),

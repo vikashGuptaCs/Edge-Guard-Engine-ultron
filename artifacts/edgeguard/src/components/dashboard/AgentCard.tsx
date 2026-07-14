@@ -75,10 +75,10 @@ export function AgentCard({ agent, workerSignal }: AgentCardProps) {
                 </Badge>
               ) : (
                 <span className={`text-xs font-mono font-bold ${
-                  agent.verdict === 'EXECUTE' ? 'text-green-500' :
-                  agent.verdict === 'VETO'    ? 'text-red-500'   : 'text-foreground'
+                  agent.status === 'ACTIVE' ? 'text-green-500' :
+                  agent.status === 'ALERT'  ? 'text-red-500'   : 'text-foreground'
                 }`}>
-                  {agent.verdict ?? "MONITORING"}
+                  {agent.status ?? "MONITORING"}
                 </span>
               )}
             </div>

@@ -97,7 +97,7 @@ export interface AgentHeartbeat {
   lastSignalTs?: number | null;
   activeFixtures: number;
   /** @nullable */
-  verdict?: string | null;
+  confidence?: number | null;
 }
 
 export interface Alert {
@@ -284,6 +284,7 @@ export interface LiveTickerItem {
   homeScore: number;
   awayScore: number;
   minutePlayed: number;
+  hasEdgeScore?: boolean;
   edgeScore: number;
   action: string;
   latencyMs: number;
