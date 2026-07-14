@@ -32,6 +32,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getFixtureStatusLabel, isLiveFixture } from "@/lib/fixture-status";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   getGetTxlineFixturesQueryKey,
@@ -849,8 +850,8 @@ export default function SettingsPage() {
                       </span>
                       <div className="flex items-center gap-2">
                         {fixture.status && (
-                          <Badge variant="outline" className={`text-[10px] ${fixture.status.toLowerCase().includes("live") ? "border-green-500/50 text-green-400" : "border-border/50 text-muted-foreground"}`}>
-                            {fixture.status}
+                          <Badge variant="outline" className={`text-[10px] ${isLiveFixture(fixture) ? "border-green-500/50 text-green-400" : "border-border/50 text-muted-foreground"}`}>
+                            {getFixtureStatusLabel(fixture)}
                           </Badge>
                         )}
                         <span className="text-muted-foreground text-[10px]">#{fixture.fixtureId}</span>
