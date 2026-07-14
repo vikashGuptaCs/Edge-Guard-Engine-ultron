@@ -22,19 +22,17 @@ function normalizeState(value?: string | null): string {
 
 export function getFixtureMonitoringState(fixture: FixtureStatusLike): FixtureLifecycleState {
   const fromMonitoring = normalizeState(fixture.monitoringState);
-  if (fromMonitoring) {
-    if (fromMonitoring === "live" || fromMonitoring === "halftime" || fromMonitoring === "finished" || fromMonitoring === "archived" || fromMonitoring === "prematch_monitoring" || fromMonitoring === "upcoming" || fromMonitoring === "discovered") {
-      return fromMonitoring as FixtureLifecycleState;
-    }
+  if (
+    fromMonitoring === "live" ||
+    fromMonitoring === "halftime" ||
+    fromMonitoring === "finished" ||
+    fromMonitoring === "archived" ||
+    fromMonitoring === "prematch_monitoring" ||
+    fromMonitoring === "upcoming" ||
+    fromMonitoring === "discovered"
+  ) {
+    return fromMonitoring as FixtureLifecycleState;
   }
-
-  const fromStatus = normalizeState(fixture.status);
-  if (fromStatus === "live" || fromStatus === "halftime" || fromStatus === "finished" || fromStatus === "archived") {
-    return fromStatus as FixtureLifecycleState;
-  }
-
-  if (fixture.isLive) return "live";
-  if (fixture.isFinished) return "finished";
 
   return "upcoming";
 }
