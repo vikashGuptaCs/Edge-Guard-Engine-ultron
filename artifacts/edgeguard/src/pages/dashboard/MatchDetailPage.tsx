@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Activity, ShieldAlert, Cpu } from "lucide-react";
 import { format } from "date-fns";
 import { useAutopilot } from "@/hooks/use-autopilot";
+import { getFixtureMonitoringState, getFixtureStatusLabel } from "@/lib/fixture-status";
 
 export default function MatchDetailPage() {
   const params = useParams();
@@ -104,6 +105,9 @@ export default function MatchDetailPage() {
           </h1>
           <div className="flex items-center gap-3 mt-2 font-mono text-sm">
             <Badge variant="outline">{fixture.competition}</Badge>
+            <Badge variant="outline" className={getFixtureMonitoringState(fixture) === 'live' || getFixtureMonitoringState(fixture) === 'halftime' ? 'border-green-500/50 text-green-500' : 'border-border/50 text-muted-foreground'}>
+              {getFixtureStatusLabel(fixture)}
+            </Badge>
             <span className="text-muted-foreground">Kickoff: {format(new Date(fixture.kickoffTs), "HH:mm")}</span>
             <span className={`font-bold ${fixture.feedLatencyMs != null && fixture.feedLatencyMs > 200 ? 'text-destructive' : 'text-green-500'}`}>
               Latency: {fixture.feedLatencyMs != null ? `${fixture.feedLatencyMs}ms` : '—'}

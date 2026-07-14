@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Calendar, Swords } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "wouter";
+import { getFixtureMonitoringState, getFixtureStatusLabel, isLiveFixture } from "@/lib/fixture-status";
 
 export default function MatchesPage() {
   const [search, setSearch] = React.useState("");
@@ -68,14 +69,16 @@ export default function MatchesPage() {
                 <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">No fixtures match search criteria.</TableCell>
               </TableRow>
             ) : (
-              filteredFixtures.map((fixture) => (
+              filteredFixtures.map((fixture) => {
+                const isLive = isLiveFixture(fixture);
+                return (
                 <TableRow key={fixture.fixtureId} className="hover:bg-muted/30 group">
                   <TableCell>
-                    <Badge variant={fixture.isLive ? 'default' : 'outline'} className={
-                      fixture.isLive ? 'bg-green-500 hover:bg-green-600 text-white' : ''
+                    <Badge variant={isLive ? 'default' : 'outline'} className={
+                      isLive ? 'bg-green-500 hover:bg-green-600 text-white' : ''
                     }>
-                      {fixture.status}
-                      {fixture.isLive && fixture.minutePlayed != null && (
+                      {getFixtureStatusLabel(fixture)}
+                      {isLive && fixture.minutePlayed != null && (
                         <span className="ml-1 opacity-80">{fixture.minutePlayed}'</span>
                       )}
                     </Badge>
@@ -99,7 +102,8 @@ export default function MatchesPage() {
                     {fixture.currentEdgeScore != null ? fixture.currentEdgeScore.toFixed(1) : '-'}
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>

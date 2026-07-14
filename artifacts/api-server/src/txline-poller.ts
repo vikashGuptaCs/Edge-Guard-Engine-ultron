@@ -19,6 +19,11 @@ const HALFTIME_REFRESH_SKIP = 2;
 const FINISHED_FINALIZATION_PASSES = 2;
 const RECENT_RESULTS_RETENTION_MS = 24 * 60 * 60 * 1000;
 
+// How far before kickoff we're willing to accept a provider 'live' claim
+// without additional in-play evidence. This prevents transient provider
+// glitches from flipping fixtures to `live` hours before the match.
+const MS_ALLOW_LIVE_BEFORE_KICKOFF = 5 * 60 * 1000; // 5 minutes
+
 let pollerActive = false;
 let pollerTimer: ReturnType<typeof setTimeout> | null = null;
 let pollCycleRunning = false;
@@ -331,6 +336,26 @@ async function upsertFixtureRecord(f: any): Promise<void> {
     nowTs,
     feedEmptyCount: 0,
   });
+  // Defensive guard: don't mark a newly discovered fixture as `live` if its
+  // kickoff is still far in the future. A provider feed glitch may briefly
+  // advertise a fixture as live; require kickoff to be within a short window
+  // before allowing a bulk-upsert to create a `live` monitoring state.
+  const MS_ALLOW_LIVE_BEFORE_KICKOFF = 5 * 60 * 1000; // 5 minutes
+  const msToKickoff = kickoffTs - nowTs;
+  let adjustedMonitoringState = monitoringState;
+  if (monitoringState === "live" && msToKickoff > MS_ALLOW_LIVE_BEFORE_KICKOFF) {
+    adjustedMonitoringState = "prematch_monitoring";
+    logger.info(
+      {
+        fixtureId: Number(f.FixtureId),
+        providerStatus,
+        StartTime: f.StartTime ?? f.KickoffTs,
+        GameState: f.GameState ?? f.Status,
+        msToKickoff,
+      },
+      "txline poller: suppressed early 'live' on bulk upsert; logged provider snapshot"
+    );
+  }
   const fixtureId = Number(f.FixtureId);
   const competition = String(f.Competition ?? f.CompetitionName ?? "Unknown");
   const participant1 = String(f.Participant1 ?? "Home");
@@ -355,7 +380,7 @@ async function upsertFixtureRecord(f: any): Promise<void> {
     // Never let the coarse bulk-list recompute override a state pollFixture()
     // already established. Only brand-new fixtures (existingMonitoringState
     // === null) get their monitoringState set here.
-    const nextMonitoringState = existingMonitoringState ?? monitoringState;
+    const nextMonitoringState = existingMonitoringState ?? adjustedMonitoringState;
 
     const transitionFields = deriveLifecycleTransitionFields({
       currentStatus: existing?.status != null ? String(existing.status) : "pre",
@@ -647,13 +672,42 @@ async function pollFixture(fixtureId: number): Promise<void> {
     now,
   });
 
+  // Defensive evidence check: require some in-play evidence before flipping to
+  // `live` if kickoff is still well in the future. Evidence includes a played
+  // minute or an odds payload explicitly indicating `InRunning`.
+  let adjustedNextMonitoringState = nextMonitoringState;
+  const msToKickoff = Number(fixture.kickoffTs) - now.getTime();
+  const hasMinutePlayed = (Number(scoreUpdate.minutePlayed) || 0) > 0 || scores.some((s) => {
+    const m = Number((s && (s.Minute ?? s.minute)) as any) || 0;
+    return m > 0;
+  });
+  const hasInRunningFlag = odds.some((o) => {
+    if (!o) return false;
+    const v = o.InRunning ?? o.inRunning ?? o.in_running ?? o.InRunningFlag;
+    if (v === true || v === 1) return true;
+    if (typeof v === "string") return v.toLowerCase() === "true" || v === "1";
+    return false;
+  });
+
+  if (
+    adjustedNextMonitoringState === "live" &&
+    msToKickoff > MS_ALLOW_LIVE_BEFORE_KICKOFF &&
+    !hasMinutePlayed &&
+    !hasInRunningFlag
+  ) {
+    logger.warn(
+      { fixtureId, msToKickoff, hasMinutePlayed, hasInRunningFlag },
+      "txline poller: suppressing early 'live' flip due to lack of in-play evidence"
+    );
+    adjustedNextMonitoringState = "prematch_monitoring";
+  }
+
   const nextArchivedAt =
     effectiveStatus === "finished" && shouldMarkArchived(transitionFields.finishedAt ?? fixture.finishedAt, now)
       ? fixture.archivedAt ?? now
       : fixture.archivedAt;
 
-  const finalMonitoringState =
-    nextArchivedAt != null ? "archived" : nextMonitoringState;
+  const finalMonitoringState = nextArchivedAt != null ? "archived" : adjustedNextMonitoringState;
 
   if (fixture.monitoringState !== finalMonitoringState) {
     if (finalMonitoringState === "prematch_monitoring") {

@@ -1,6 +1,7 @@
 import React from "react";
 import { getGetLiveTickerQueryKey, useGetLiveTicker } from "@workspace/api-client-react";
 import { Link } from "wouter";
+import { getFixtureStatusLabel } from "@/lib/fixture-status";
 
 export function LiveTicker() {
   const { data: tickerItems = [], isLoading } = useGetLiveTicker({
@@ -50,6 +51,9 @@ export function LiveTicker() {
                   {item.homeTeam} {item.homeScore}-{item.awayScore} {item.awayTeam}
                 </span>
                 <span className="text-muted-foreground">{item.minutePlayed}'</span>
+                <span className="text-muted-foreground">
+                  {getFixtureStatusLabel({ monitoringState: item.monitoringState, isLive: item.isLive, isFinished: item.isFinished })}
+                </span>
                 <span className="text-primary font-bold">
                   {item.hasEdgeScore ? `${item.edgeScore.toFixed(1)} EDGE` : 'EDGE PENDING'}
                 </span>

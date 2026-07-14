@@ -10,6 +10,7 @@ import { WorkerStatusBadge } from "@/components/dashboard/WorkerStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getFixtureMonitoringState, isFinishedFixture, isLiveFixture, isPrematchFixture, getFixtureStatusLabel } from "@/lib/fixture-status";
 
 type DashboardMode = "live" | "prematch" | "idle" | "degraded";
 type DashboardFixture = Fixture;
@@ -26,42 +27,6 @@ function deriveDashboardMode(args: {
   if (liveFixtures.length > 0) return "live";
   if (upcomingFixtures.length > 0) return "prematch";
   return "idle";
-}
-
-function getFixtureMonitoringState(fixture: DashboardFixture): string {
-  return fixture.monitoringState || fixture.status.toLowerCase();
-}
-
-function isLiveFixture(fixture: DashboardFixture) {
-  const state = getFixtureMonitoringState(fixture);
-  return (
-    fixture.isLive === true ||
-    state === "live" ||
-    state === "halftime" ||
-    fixture.status.toLowerCase() === "live"
-  );
-}
-
-function isPrematchFixture(fixture: DashboardFixture) {
-  const state = getFixtureMonitoringState(fixture);
-  return (
-    state === "prematch_monitoring" ||
-    state === "upcoming" ||
-    state === "discovered" ||
-    (!isLiveFixture(fixture) && !isFinishedFixture(fixture) && fixture.kickoffTs > Date.now())
-  );
-}
-
-function isFinishedFixture(fixture: DashboardFixture) {
-  const state = getFixtureMonitoringState(fixture);
-  const status = fixture.status.toLowerCase();
-  return (
-    fixture.isFinished === true ||
-    state === "finished" ||
-    state === "archived" ||
-    status === "finished" ||
-    status === "ft"
-  );
 }
 
 function isFeedDegraded(fixture: DashboardFixture) {
@@ -169,7 +134,7 @@ function FixtureSummaryCard({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className={`text-[10px] uppercase ${getStateBadgeClassName(monitoringState)}`}>
-              {monitoringState.replace(/_/g, " ")}
+              {getFixtureStatusLabel(fixture)}
             </Badge>
             <Badge variant="outline" className={`text-[10px] uppercase ${getFeedBadgeClassName(fixture.feedHealth)}`}>
               {fixture.feedHealth ?? "unknown"}
