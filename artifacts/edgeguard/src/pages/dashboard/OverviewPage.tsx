@@ -313,7 +313,7 @@ export default function OverviewPage() {
                         <CalendarClock className="h-3.5 w-3.5" />
                         {formatFreshnessLabel(fixture.lastSuccessfulIngestAt)}
                       </span>
-                      <span>Edge {fixture.currentEdgeScore?.toFixed(1) ?? "—"}</span>
+                      <span>Edge {isLiveFixture(fixture) ? (fixture.currentEdgeScore?.toFixed(1) ?? "—") : "—"}</span>
                     </div>
                   }
                 />

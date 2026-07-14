@@ -72,6 +72,9 @@ function serializeReceipt(
   const fixture = relations?.fixtureMap?.[receipt.fixtureId];
   const alert = receipt.alertId ? relations?.alertMap?.[receipt.alertId] : null;
 
+  const lifecycleState = fixture?.monitoringState ?? alert?.lifecycleState ?? null;
+  const showEdgeScore = lifecycleState === "live" || lifecycleState === "halftime";
+
   return {
     id: receipt.id,
     userId: receipt.userId,
@@ -105,7 +108,7 @@ function serializeReceipt(
           userId: alert.userId,
           fixtureId: alert.fixtureId,
           ts: alert.ts,
-          edgeScore: alert.edgeScore,
+          edgeScore: showEdgeScore ? alert.edgeScore : 0,
           narration: alert.narration,
           action: alert.action,
           fired: alert.fired,

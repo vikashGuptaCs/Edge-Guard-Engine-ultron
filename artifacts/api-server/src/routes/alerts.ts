@@ -81,6 +81,14 @@ function getEffectiveLifecycleState(
   return alert.lifecycleState ?? fixture?.monitoringState ?? null;
 }
 
+function getDisplayEdgeScore(alert: AlertRecord, fixture: FixtureRecord | null | undefined): number | null {
+  const lifecycleState = getEffectiveLifecycleState(alert, fixture);
+  if (lifecycleState === "live" || lifecycleState === "halftime") {
+    return alert.edgeScore;
+  }
+  return null;
+}
+
 function getEffectiveFeedHealth(
   alert: Pick<AlertRecord, "feedHealth">,
   fixture: FixtureRecord | null | undefined,
@@ -251,7 +259,7 @@ function enrichAlert(args: {
     userId: alert.userId,
     fixtureId: alert.fixtureId,
     ts: alert.ts,
-    edgeScore: alert.edgeScore,
+    edgeScore: getDisplayEdgeScore(alert, fixture) ?? 0,
     narration: alert.narration,
     action: alert.action,
     fired: alert.fired,

@@ -11,17 +11,13 @@ export type AlertConfidenceBand =
   | "low";
 
 export function isPrematchEligibleFixture(fixture: AlertFixtureContext | null | undefined): boolean {
-  return (
-    fixture?.monitoringState === "upcoming" ||
-    fixture?.monitoringState === "prematch_monitoring"
-  );
+  const state = fixture?.monitoringState;
+  return state === "upcoming" || state === "prematch_monitoring";
 }
 
 export function isLiveEligibleFixture(fixture: AlertFixtureContext | null | undefined): boolean {
-  return (
-    fixture?.monitoringState === "live" ||
-    fixture?.monitoringState === "halftime"
-  );
+  const state = fixture?.monitoringState;
+  return state === "live" || state === "halftime";
 }
 
 export function isAlertSuppressedByFeedHealth(fixture: AlertFixtureContext | null | undefined): boolean {

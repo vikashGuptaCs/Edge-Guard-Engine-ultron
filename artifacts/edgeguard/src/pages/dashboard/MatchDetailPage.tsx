@@ -116,7 +116,7 @@ export default function MatchDetailPage() {
         </div>
         <div className="flex flex-col items-end gap-2 bg-card border rounded-lg p-3">
           <span className="text-[10px] uppercase font-mono text-muted-foreground tracking-wider">Edge Score</span>
-          <span className="text-3xl font-bold font-mono text-primary">{fixture.currentEdgeScore != null ? fixture.currentEdgeScore.toFixed(1) : "0.0"}</span>
+          <span className="text-3xl font-bold font-mono text-primary">{getFixtureMonitoringState(fixture) === 'live' || getFixtureMonitoringState(fixture) === 'halftime' ? (fixture.currentEdgeScore != null ? fixture.currentEdgeScore.toFixed(1) : "—") : "—"}</span>
         </div>
       </div>
 

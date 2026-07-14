@@ -99,7 +99,7 @@ export default function MatchesPage() {
                     {format(new Date(fixture.kickoffTs), "MMM dd, HH:mm")}
                   </TableCell>
                   <TableCell className="text-right font-bold text-primary">
-                    {fixture.currentEdgeScore != null ? fixture.currentEdgeScore.toFixed(1) : '-'}
+                    {isLive ? (fixture.currentEdgeScore != null ? fixture.currentEdgeScore.toFixed(1) : '-') : '-'}
                   </TableCell>
                 </TableRow>
                 );

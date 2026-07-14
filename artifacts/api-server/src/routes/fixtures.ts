@@ -15,19 +15,18 @@ function computeDataFreshnessMs(lastSuccessfulIngestAt?: string | Date | null) {
   return Math.max(0, Date.now() - new Date(lastSuccessfulIngestAt).getTime());
 }
 
-function isLiveMonitoringState(status?: string | null, monitoringState?: string | null) {
-  const normalizedStatus = status?.toLowerCase();
-  return monitoringState === "live" || monitoringState === "halftime" || normalizedStatus === "live" || normalizedStatus === "halftime";
+function isLiveMonitoringState(monitoringState?: string | null) {
+  return monitoringState === "live" || monitoringState === "halftime";
 }
 
-function isFinishedMonitoringState(status?: string | null, monitoringState?: string | null) {
-  const normalizedStatus = status?.toLowerCase();
-  return monitoringState === "finished" || monitoringState === "archived" || normalizedStatus === "finished";
+function isFinishedMonitoringState(monitoringState?: string | null) {
+  return monitoringState === "finished" || monitoringState === "archived";
 }
 
 function mapFixtureResponse(fixture: typeof fixturesTable.$inferSelect) {
-  const isLive = isLiveMonitoringState(fixture.status, fixture.monitoringState);
-  const isFinished = isFinishedMonitoringState(fixture.status, fixture.monitoringState);
+  const isLive = isLiveMonitoringState(fixture.monitoringState);
+  const isFinished = isFinishedMonitoringState(fixture.monitoringState);
+  const currentEdgeScore = isLive ? fixture.currentEdgeScore : null;
 
   return {
     fixtureId: fixture.fixtureId,
@@ -39,7 +38,7 @@ function mapFixtureResponse(fixture: typeof fixturesTable.$inferSelect) {
     homeScore: fixture.homeScore,
     awayScore: fixture.awayScore,
     minutePlayed: fixture.minutePlayed,
-    currentEdgeScore: fixture.currentEdgeScore,
+    currentEdgeScore,
     feedLatencyMs: fixture.feedLatencyMs,
     monitoringState: fixture.monitoringState ?? null,
     feedHealth: fixture.feedHealth ?? null,
