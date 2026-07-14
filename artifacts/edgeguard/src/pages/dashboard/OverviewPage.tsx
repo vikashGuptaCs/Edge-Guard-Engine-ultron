@@ -30,7 +30,17 @@ function deriveDashboardMode(args: {
 }
 
 function isFeedDegraded(fixture: DashboardFixture) {
-  return ["degraded", "error", "empty"].includes(fixture.feedHealth ?? "");
+  const feedHealth = fixture.feedHealth?.toLowerCase();
+  if (["degraded", "error", "empty"].includes(feedHealth ?? "")) {
+    return true;
+  }
+
+  if (!fixture.lastSuccessfulIngestAt) {
+    return false;
+  }
+
+  const staleMs = Date.now() - new Date(fixture.lastSuccessfulIngestAt).getTime();
+  return staleMs > 3 * 60 * 1000;
 }
 
 function formatFreshnessLabel(lastSuccessfulIngestAt?: string | null) {
