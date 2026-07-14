@@ -1,4 +1,15 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+
+const HARD_LOCK_STORAGE_KEY = 'edgeguard.hardLocked';
+
+function readPersistedHardLock(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(HARD_LOCK_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
 
 export type AutopilotExecutionState =
   | 'disabled'
@@ -42,7 +53,19 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
   const [autopilotExecutionState, setAutopilotExecutionStateState] = useState<AutopilotExecutionState>('disabled');
   const [pendingProposal, setPendingProposal] = useState<AutopilotProposal | null>(null);
   const [threshold, setThreshold] = useState(80);
-  const [hardLocked, setHardLocked] = useState(false);
+  const [hardLocked, setHardLocked] = useState(readPersistedHardLock);
+
+  useEffect(() => {
+    try {
+      if (hardLocked) {
+        window.localStorage.setItem(HARD_LOCK_STORAGE_KEY, 'true');
+      } else {
+        window.localStorage.removeItem(HARD_LOCK_STORAGE_KEY);
+      }
+    } catch {
+      // ignore localStorage failures
+    }
+  }, [hardLocked]);
 
   const setAutopilotEnabled = useCallback((enabled: boolean) => {
     setAutopilotEnabledState(enabled);
@@ -64,6 +87,13 @@ export function AutopilotProvider({ children }: { children: React.ReactNode }) {
 
   const setHardLockedState = useCallback((locked: boolean) => {
     setHardLocked(locked);
+    try {
+      if (locked) {
+        window.localStorage.setItem(HARD_LOCK_STORAGE_KEY, 'true');
+      } else {
+        window.localStorage.removeItem(HARD_LOCK_STORAGE_KEY);
+      }
+    } catch {}
 
     if (locked) {
       setAutopilotEnabledState(false);

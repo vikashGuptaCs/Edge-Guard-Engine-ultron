@@ -71,11 +71,11 @@ export default function MatchesPage() {
               filteredFixtures.map((fixture) => (
                 <TableRow key={fixture.fixtureId} className="hover:bg-muted/30 group">
                   <TableCell>
-                    <Badge variant={fixture.status === 'live' ? 'default' : 'outline'} className={
-                      fixture.status === 'live' ? 'bg-green-500 hover:bg-green-600 text-white' : ''
+                    <Badge variant={fixture.isLive ? 'default' : 'outline'} className={
+                      fixture.isLive ? 'bg-green-500 hover:bg-green-600 text-white' : ''
                     }>
                       {fixture.status}
-                      {fixture.status === 'live' && fixture.minutePlayed && (
+                      {fixture.isLive && fixture.minutePlayed != null && (
                         <span className="ml-1 opacity-80">{fixture.minutePlayed}'</span>
                       )}
                     </Badge>
@@ -96,7 +96,7 @@ export default function MatchesPage() {
                     {format(new Date(fixture.kickoffTs), "MMM dd, HH:mm")}
                   </TableCell>
                   <TableCell className="text-right font-bold text-primary">
-                    {fixture.currentEdgeScore ? fixture.currentEdgeScore.toFixed(1) : '-'}
+                    {fixture.currentEdgeScore != null ? fixture.currentEdgeScore.toFixed(1) : '-'}
                   </TableCell>
                 </TableRow>
               ))

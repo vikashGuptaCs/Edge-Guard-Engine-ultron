@@ -26,6 +26,24 @@ export interface WorkerSignal {
 const oddsHistory = new Map<number, OddsSnapshot[]>();
 const HISTORY_WINDOW = 14;
 
+/** Group snapshots by market+selection and return only the most-populated
+ * group. Prevents comparing prices from unrelated markets (e.g. 1X2 vs
+ * Over/Under) as if they were one continuous series. */
+function pickPrimaryMarketHistory(history: OddsSnapshot[]): OddsSnapshot[] {
+  const groups = new Map<string, OddsSnapshot[]>();
+  for (const snap of history) {
+    const key = `${snap.market}:${snap.selection}`;
+    const arr = groups.get(key) ?? [];
+    arr.push(snap);
+    groups.set(key, arr);
+  }
+  let best: OddsSnapshot[] = [];
+  for (const arr of groups.values()) {
+    if (arr.length > best.length) best = arr;
+  }
+  return best;
+}
+
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let activeFixtureIds: number[] = [];
 let apiBasePath = '';
@@ -80,8 +98,10 @@ async function runCycle() {
       if (history.length > HISTORY_WINDOW) history.splice(0, history.length - HISTORY_WINDOW);
       oddsHistory.set(fixtureId, history);
 
-      const latest = history[history.length - 1];
-      const result = computeRiskSignals(fixtureId, history, latest);
+      const primaryHistory = pickPrimaryMarketHistory(history);
+      if (primaryHistory.length === 0) continue;
+      const latest = primaryHistory[primaryHistory.length - 1];
+      const result = computeRiskSignals(fixtureId, primaryHistory, latest);
       
       // Post signals to UI thread for live display
       self.postMessage({ type: 'SIGNALS', ...result });

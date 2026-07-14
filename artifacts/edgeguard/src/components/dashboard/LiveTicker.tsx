@@ -40,7 +40,7 @@ export function LiveTicker() {
         {[...tickerItems, ...tickerItems, ...tickerItems].map((item, idx) => {
           const actionColor = 
             item.action === 'EXECUTE' ? 'text-green-500 bg-green-500/10' : 
-            item.action === 'VETO' ? 'text-red-500 bg-red-500/10' : 
+            item.action.startsWith('VETO') ? 'text-red-500 bg-red-500/10' : 
             'text-amber-500 bg-amber-500/10';
 
           return (
@@ -50,7 +50,9 @@ export function LiveTicker() {
                   {item.homeTeam} {item.homeScore}-{item.awayScore} {item.awayTeam}
                 </span>
                 <span className="text-muted-foreground">{item.minutePlayed}'</span>
-                <span className="text-primary font-bold">{item.edgeScore.toFixed(1)} EDGE</span>
+                <span className="text-primary font-bold">
+                  {item.hasEdgeScore ? `${item.edgeScore.toFixed(1)} EDGE` : 'EDGE PENDING'}
+                </span>
                 <span className={`px-1.5 py-0.5 rounded text-[10px] tracking-widest font-bold ${actionColor}`}>
                   {item.action}
                 </span>

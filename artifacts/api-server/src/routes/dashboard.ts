@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { fixturesTable, alertsTable, agentSignalsTable, oddsSnapshotsTable } from "@workspace/db";
-import { desc, count, eq, inArray } from "drizzle-orm";
+import { desc, count, eq, inArray, and, gte, sql, like } from "drizzle-orm";
 
 const router = Router();
 
@@ -25,6 +25,23 @@ function isFinishedMonitoringState(status?: string | null, monitoringState?: str
   return monitoringState === "finished" || monitoringState === "archived" || normalizedStatus === "finished";
 }
 
+function pickPrimaryMarketRow<T extends { market: string; selection: string; ts: number }>(
+  rows: T[],
+): T | null {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = `${row.market}:${row.selection}`;
+    const arr = groups.get(key) ?? [];
+    arr.push(row);
+    groups.set(key, arr);
+  }
+  let best: T[] = [];
+  for (const arr of groups.values()) {
+    if (arr.length > best.length) best = arr;
+  }
+  return best.length > 0 ? best[0] : null; // rows are already ordered desc(ts)
+}
+
 router.get("/dashboard/summary", async (req, res) => {
   try {
     const [activeFixtures] = await db
@@ -36,15 +53,28 @@ router.get("/dashboard/summary", async (req, res) => {
       .select({ count: count() })
       .from(alertsTable);
 
+    const startOfDayTs = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+
     const [executedToday] = await db
       .select({ count: count() })
       .from(alertsTable)
-      .where(eq(alertsTable.action, "EXECUTE"));
+      .where(and(eq(alertsTable.action, "EXECUTE"), gte(alertsTable.ts, startOfDayTs)));
 
     const [vetoedToday] = await db
       .select({ count: count() })
       .from(alertsTable)
-      .where(eq(alertsTable.fired, true));
+      .where(and(like(alertsTable.action, "VETO%"), gte(alertsTable.ts, startOfDayTs)));
+
+    const oneHourAgoTs = Date.now() - 60 * 60 * 1000;
+    const [alertsLastHour] = await db
+      .select({ count: count() })
+      .from(alertsTable)
+      .where(gte(alertsTable.ts, oneHourAgoTs));
+
+    const [avgEdgeRow] = await db
+      .select({ avg: sql<string>`avg(${fixturesTable.currentEdgeScore})` })
+      .from(fixturesTable)
+      .where(inArray(fixturesTable.monitoringState, ["live", "halftime"]));
 
     const latestFixture = await db
       .select()
@@ -57,8 +87,8 @@ router.get("/dashboard/summary", async (req, res) => {
       totalAlerts: Number(totalAlerts?.count ?? 0),
       executedToday: Number(executedToday?.count ?? 0),
       vetoedToday: Number(vetoedToday?.count ?? 0),
-      avgEdgeScore: 73.4,
-      feedLatencyMs: latestFixture[0]?.feedLatencyMs ?? 42,
+      avgEdgeScore: avgEdgeRow?.avg != null ? Number(avgEdgeRow.avg) : null,
+      feedLatencyMs: latestFixture[0]?.feedLatencyMs ?? null,
       monitoringState: latestFixture[0]?.monitoringState ?? null,
       feedHealth: latestFixture[0]?.feedHealth ?? null,
       lastSuccessfulIngestAt: latestFixture[0]?.lastSuccessfulIngestAt?.toISOString() ?? null,
@@ -66,7 +96,7 @@ router.get("/dashboard/summary", async (req, res) => {
       isLive: isLiveMonitoringState(latestFixture[0]?.monitoringState),
       isFinished: isFinishedMonitoringState(latestFixture[0]?.monitoringState),
       activeAgents: 5,
-      alertsPerHour: 3.2,
+      alertsPerHour: Number(alertsLastHour?.count ?? 0),
     });
   } catch (err) {
     req.log.error({ err }, "getDashboardSummary error");
@@ -91,8 +121,16 @@ router.get("/dashboard/live-ticker", async (req, res) => {
         .orderBy(desc(agentSignalsTable.ts))
         .limit(1);
 
-      const edgeScore = f.currentEdgeScore ?? Math.floor(Math.random() * 40) + 50;
-      const action = edgeScore >= 80 ? "EXECUTE" : edgeScore >= 60 ? "MONITORING" : "HOLD";
+      const hasEdgeScore = f.currentEdgeScore != null;
+      const edgeScore = f.currentEdgeScore ?? 50; // neutral placeholder, never random
+      const action =
+        f.feedHealth === "degraded" || f.feedHealth === "error"
+          ? "VETO_FEED"
+          : edgeScore >= 80
+          ? "EXECUTE"
+          : edgeScore >= 60
+          ? "MONITORING"
+          : "HOLD";
       const isLive = isLiveMonitoringState(f.status, f.monitoringState);
       const isFinished = isFinishedMonitoringState(f.status, f.monitoringState);
 
@@ -104,6 +142,7 @@ router.get("/dashboard/live-ticker", async (req, res) => {
         awayScore: f.awayScore ?? 0,
         minutePlayed: f.minutePlayed ?? 0,
         edgeScore,
+        hasEdgeScore,
         action,
         latencyMs: f.feedLatencyMs ?? 42,
         topSignal: latestSignal?.signalType ?? null,
@@ -134,12 +173,13 @@ router.get("/dashboard/risk-grid", async (req, res) => {
       .limit(20);
 
     const grid = await Promise.all(liveFixtures.map(async (f) => {
-      const [latestOdds] = await db
+      const recentOdds = await db
         .select()
         .from(oddsSnapshotsTable)
         .where(eq(oddsSnapshotsTable.fixtureId, f.fixtureId))
         .orderBy(desc(oddsSnapshotsTable.ts))
-        .limit(1);
+        .limit(50);
+      const latestOdds = pickPrimaryMarketRow(recentOdds);
 
       const [latestSignal] = await db
         .select()

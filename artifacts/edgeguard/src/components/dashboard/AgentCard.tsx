@@ -34,12 +34,12 @@ export function AgentCard({ agent, workerSignal }: AgentCardProps) {
   };
   const statusColor = statusColors[agent.status as keyof typeof statusColors] ?? statusColors.ACTIVE;
 
-  // Live confidence from the worker takes priority; fall back to mock from status
+  // Live confidence from the worker takes priority; otherwise use the real
+  // confidence from the agent's last persisted signal (see agents.ts route
+  // change 2.7 — do not fall back to a random number here).
   const confidence = workerSignal != null
     ? workerSignal.confidence * 100
-    : agent.status === 'ACTIVE' ? 85 + Math.random() * 10
-    : agent.status === 'PAUSED' ? 40 + Math.random() * 20
-    : 10 + Math.random() * 10;
+    : (agent.confidence ?? 0);
 
   return (
     <Card className="bg-card/40 backdrop-blur-md border-border/50 hover:border-primary/50 transition-all group overflow-hidden relative">

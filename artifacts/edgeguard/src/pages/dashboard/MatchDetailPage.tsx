@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "wouter";
 import { useGetFixture, useGetFixtureTimeline, getGetFixtureQueryKey, getGetFixtureTimelineQueryKey } from "@workspace/api-client-react";
 import { TimelineReplaySlider } from "@/components/dashboard/TimelineReplaySlider";
@@ -24,21 +24,23 @@ export default function MatchDetailPage() {
 
   const [currentMinute, setCurrentMinute] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasUserScrubbed, setHasUserScrubbed] = useState(false);
 
-  // Sync to live minute initially or when live updates push it forward
+  // Sync to live minute initially, or when live updates push it forward —
+  // but only until the user manually scrubs the slider.
   useEffect(() => {
-    if (fixture?.minutePlayed && !isPlaying) {
+    if (fixture?.minutePlayed != null && !isPlaying && !hasUserScrubbed) {
       setCurrentMinute(fixture.minutePlayed);
     }
-  }, [fixture?.minutePlayed, isPlaying]);
+  }, [fixture?.minutePlayed, isPlaying, hasUserScrubbed]);
 
   // Handle playback
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-    if (isPlaying && fixture?.minutePlayed) {
+    if (isPlaying && fixture?.minutePlayed != null) {
       interval = setInterval(() => {
         setCurrentMinute(prev => {
-          if (prev >= (fixture.minutePlayed || 90)) {
+          if (prev >= (fixture.minutePlayed ?? 90)) {
             setIsPlaying(false);
             return prev;
           }
@@ -49,6 +51,16 @@ export default function MatchDetailPage() {
     return () => clearInterval(interval);
   }, [isPlaying, fixture?.minutePlayed]);
 
+  const handleScrub = useCallback((minute: number) => {
+    setHasUserScrubbed(true);
+    setCurrentMinute(minute);
+  }, []);
+
+  const jumpToLive = useCallback(() => {
+    setHasUserScrubbed(false);
+    if (fixture?.minutePlayed != null) setCurrentMinute(fixture.minutePlayed);
+  }, [fixture?.minutePlayed]);
+
   if (isLoadingFixture || isLoadingTimeline) {
     return <div className="p-6 space-y-6"><Skeleton className="h-32 w-full" /><Skeleton className="h-64 w-full" /></div>;
   }
@@ -57,8 +69,27 @@ export default function MatchDetailPage() {
     return <div className="p-6 text-center text-muted-foreground font-mono">Fixture data not found.</div>;
   }
 
-  const currentOdds = timeline.odds.filter(o => o.ts <= (Date.now() - (fixture.minutePlayed! - currentMinute) * 60000));
-  const currentSignals = timeline.signals.filter(s => new Date(s.ts).getTime() <= (Date.now() - (fixture.minutePlayed! - currentMinute) * 60000));
+  function pickPrimaryMarketOdds(odds: typeof timeline.odds): typeof timeline.odds {
+    const groups = new Map<string, typeof timeline.odds>();
+    for (const o of odds) {
+      const key = `${o.market}:${o.selection}`;
+      const arr = groups.get(key) ?? [];
+      arr.push(o);
+      groups.set(key, arr);
+    }
+    let best: typeof timeline.odds = [];
+    for (const arr of groups.values()) {
+      if (arr.length > best.length) best = arr;
+    }
+    return best;
+  }
+
+  const minutesElapsedSince = (fixture.minutePlayed ?? 0) - currentMinute;
+  const replayThreshold = Date.now() - minutesElapsedSince * 60000;
+  const currentOdds = pickPrimaryMarketOdds(
+    timeline.odds.filter(o => o.ts <= replayThreshold),
+  );
+  const currentSignals = timeline.signals.filter(s => new Date(s.ts).getTime() <= replayThreshold);
 
   return (
     <div className="flex flex-col gap-6 h-full">
@@ -74,24 +105,33 @@ export default function MatchDetailPage() {
           <div className="flex items-center gap-3 mt-2 font-mono text-sm">
             <Badge variant="outline">{fixture.competition}</Badge>
             <span className="text-muted-foreground">Kickoff: {format(new Date(fixture.kickoffTs), "HH:mm")}</span>
-            <span className={`font-bold ${fixture.feedLatencyMs && fixture.feedLatencyMs > 200 ? 'text-destructive' : 'text-green-500'}`}>
-              Latency: {fixture.feedLatencyMs}ms
+            <span className={`font-bold ${fixture.feedLatencyMs != null && fixture.feedLatencyMs > 200 ? 'text-destructive' : 'text-green-500'}`}>
+              Latency: {fixture.feedLatencyMs != null ? `${fixture.feedLatencyMs}ms` : '—'}
             </span>
           </div>
         </div>
         <div className="flex flex-col items-end gap-2 bg-card border rounded-lg p-3">
           <span className="text-[10px] uppercase font-mono text-muted-foreground tracking-wider">Edge Score</span>
-          <span className="text-3xl font-bold font-mono text-primary">{fixture.currentEdgeScore?.toFixed(1) || "0.0"}</span>
+          <span className="text-3xl font-bold font-mono text-primary">{fixture.currentEdgeScore != null ? fixture.currentEdgeScore.toFixed(1) : "0.0"}</span>
         </div>
       </div>
 
+      {hardLocked && (
+        <div className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-xs font-mono text-red-400 flex items-center gap-2">
+          <ShieldAlert className="w-3.5 h-3.5" /> Hard lock enabled — trading disabled
+        </div>
+      )}
+
       <TimelineReplaySlider 
         currentMinute={currentMinute} 
-        maxMinute={fixture.minutePlayed || 90} 
-        onChange={setCurrentMinute}
+        maxMinute={fixture.minutePlayed ?? 90} 
+        onChange={handleScrub}
         isPlaying={isPlaying}
         onPlayPause={() => setIsPlaying(!isPlaying)}
       />
+      {hasUserScrubbed && !isPlaying && (
+        <button className="text-xs text-primary underline mt-2" onClick={jumpToLive}>Jump to live minute</button>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="col-span-1 lg:col-span-2 flex flex-col gap-4">

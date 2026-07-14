@@ -660,8 +660,8 @@ components:
           type: ["integer", "null"]
         activeFixtures:
           type: integer
-        verdict:
-          type: ["string", "null"]
+        confidence:
+          type: ["number", "null"]
       required:
         - agentName
         - status

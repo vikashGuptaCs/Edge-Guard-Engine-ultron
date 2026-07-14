@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
-import { txlineEventsTable, fixturesTable, oddsSnapshotsTable, scoreEventsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { txlineEventsTable, fixturesTable, oddsSnapshotsTable, scoreEventsTable, agentSignalsTable } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
 import {
   getTxlineFixtures,
   getTxlineOddsSnapshotResult,
@@ -128,8 +128,10 @@ function isTxlineErrorCategory(category: string): boolean {
 }
 
 async function loadLiveFixtureDataWithFallback(fixtureId: number, emptyCount: number) {
-  const oddsUpdates = await getTxlineOddsUpdatesResult(fixtureId);
-  const scoresUpdates = await getTxlineScoresUpdatesResult(fixtureId);
+  const [oddsUpdates, scoresUpdates] = await Promise.all([
+    getTxlineOddsUpdatesResult(fixtureId),
+    getTxlineScoresUpdatesResult(fixtureId),
+  ]);
 
   const shouldFallback =
     oddsUpdates.data.length + scoresUpdates.data.length === 0 && emptyCount >= 2;
@@ -350,8 +352,10 @@ async function upsertFixtureRecord(f: any): Promise<void> {
       .limit(1);
 
     const existingMonitoringState = existing?.monitoringState != null ? String(existing.monitoringState) : null;
-    const nextMonitoringState =
-      existingMonitoringState === "archived" ? "archived" : monitoringState;
+    // Never let the coarse bulk-list recompute override a state pollFixture()
+    // already established. Only brand-new fixtures (existingMonitoringState
+    // === null) get their monitoringState set here.
+    const nextMonitoringState = existingMonitoringState ?? monitoringState;
 
     const transitionFields = deriveLifecycleTransitionFields({
       currentStatus: existing?.status != null ? String(existing.status) : "pre",
@@ -458,6 +462,7 @@ async function insertScoreEvents(fixtureId: number, scores: any[]) {
 }
 
 async function pollFixture(fixtureId: number): Promise<void> {
+  const pollStartedAt = Date.now();
   const [fixture] = await db
     .select()
     .from(fixturesTable)
@@ -563,6 +568,14 @@ async function pollFixture(fixtureId: number): Promise<void> {
 
   if (scores.length > 0) {
     try {
+      // Sort ascending by provider timestamp first so the last write in the
+      // array is the most recent provider event when applied in sequence.
+      scores.sort((a, b) => {
+        const ta = Number(a?.Ts ?? a?.ts ?? a?.Timestamp ?? 0) || 0;
+        const tb = Number(b?.Ts ?? b?.ts ?? b?.Timestamp ?? 0) || 0;
+        return ta - tb;
+      });
+
       for (const s of scores) {
         const score = s as Record<string, unknown>;
         const home =
@@ -681,6 +694,29 @@ async function pollFixture(fixtureId: number): Promise<void> {
     );
   }
 
+  // Real feed latency: how long this poll's provider round trip actually took.
+  const nextFeedLatencyMs = Date.now() - pollStartedAt;
+
+  // Real edge score: pull the most recent Orchestrator verdict for this fixture,
+  // if one has been computed, instead of leaving the column null forever.
+  const [latestOrchestratorSignal] = await db
+    .select()
+    .from(agentSignalsTable)
+    .where(
+      and(
+        eq(agentSignalsTable.fixtureId, fixtureId),
+        eq(agentSignalsTable.agentName, "Orchestrator"),
+      ),
+    )
+    .orderBy(desc(agentSignalsTable.ts))
+    .limit(1);
+
+  const orchestratorPayload = latestOrchestratorSignal?.payload as { edgeScore?: number } | null;
+  const nextEdgeScore =
+    typeof orchestratorPayload?.edgeScore === "number"
+      ? orchestratorPayload.edgeScore
+      : (fixture.currentEdgeScore ?? null);
+
   await db
     .update(fixturesTable)
     .set({
@@ -697,6 +733,8 @@ async function pollFixture(fixtureId: number): Promise<void> {
       firstLiveAt: transitionFields.firstLiveAt,
       finishedAt: transitionFields.finishedAt,
       archivedAt: nextArchivedAt,
+      feedLatencyMs: nextFeedLatencyMs,
+      currentEdgeScore: nextEdgeScore,
     })
     .where(eq(fixturesTable.fixtureId, fixtureId));
 }
@@ -718,9 +756,16 @@ async function runPollCycle(): Promise<void> {
       await upsertFixtureRecord(fixture);
     }
 
-    for (const fixture of fixtures) {
-      await pollFixture(Number(fixture.FixtureId));
+    const POLL_CONCURRENCY = 5;
+
+    async function pollFixturesConcurrently(fixtureIds: number[]): Promise<void> {
+      for (let i = 0; i < fixtureIds.length; i += POLL_CONCURRENCY) {
+        const batch = fixtureIds.slice(i, i + POLL_CONCURRENCY);
+        await Promise.all(batch.map((id) => pollFixture(id)));
+      }
     }
+
+    await pollFixturesConcurrently(fixtures.map((f) => Number(f.FixtureId)));
     pollerRuntimeState.lastCycleSucceeded = true;
   } catch (err) {
     pollerRuntimeState.lastCycleSucceeded = false;

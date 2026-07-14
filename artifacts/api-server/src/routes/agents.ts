@@ -123,14 +123,15 @@ router.get("/agents/heartbeat", async (req, res) => {
         const lastSignalTs = lastSignal ? lastSignal.ts : null;
         const isStale = !isSignalFresh(lastSignalTs, now);
         const status = isStale ? "PAUSED" : (lastSignal?.signalType === "CIRCUIT_BREAKER" ? "ALERT" : "ACTIVE");
-        const verdict = lastSignal ? `${lastSignal.signalType} @ ${Math.round(parseFloat(lastSignal.confidence) * 100)}% conf` : null;
+        const confidence = lastSignal ? Math.round(parseFloat(lastSignal.confidence) * 1000) / 10 : null;
+        const verdict = lastSignal ? `${lastSignal.signalType} @ ${Math.round((confidence ?? 0))}% conf` : null;
 
         return {
           agentName,
           status,
           lastSignalTs,
           activeFixtures: activeFixtures.length,
-          verdict,
+          confidence,
         };
       })
     );
